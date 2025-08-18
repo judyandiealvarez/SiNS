@@ -1,10 +1,10 @@
-# DNS Server with Web Management Interface
+# SiNS - Simple Name Server
 
-A complete DNS server solution with web-based management interface, built with .NET 8, PostgreSQL, and Vue.js.
+**SiNS** stands for **[Si]mple [N]ame [S]erver** - a complete DNS server solution with web-based management interface, built with .NET 8, PostgreSQL, and Vue.js.
 
 ## Features
 
-- **DNS Server**: Authoritative and recursive DNS server supporting UDP and TCP
+- **SiNS DNS Server**: Authoritative and recursive DNS server supporting UDP and TCP
 - **Web Management**: Modern Vue.js interface with Vuex state management
 - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
 - **Authentication**: JWT-based authentication with role-based access
@@ -15,20 +15,20 @@ A complete DNS server solution with web-based management interface, built with .
 ## Architecture
 
 ### Services
-- **DNS Server**: .NET 8 application handling DNS queries (IP: 172.20.0.3)
+- **SiNS DNS Server**: .NET 8 application handling DNS queries (IP: 172.20.0.3)
 - **PostgreSQL**: Database for DNS records and configuration (IP: 172.20.0.2)
 - **Web Interface**: Vue.js application for management (Port 80)
 
 ### Network Configuration
 - **Subnet**: 172.20.0.0/16
 - **Gateway**: 172.20.0.1
-- **DNS Server**: 172.20.0.3
+- **SiNS DNS Server**: 172.20.0.3
 - **PostgreSQL**: 172.20.0.2
 
 ### Production Configuration
 - **DNS Port**: 53 (standard DNS port)
 - **Web Interface**: http://localhost
-- **Static IPs**: 172.20.0.2 (PostgreSQL), 172.20.0.3 (DNS Server)
+- **Static IPs**: 172.20.0.2 (PostgreSQL), 172.20.0.3 (SiNS DNS Server)
 - **Network**: 172.20.0.0/16 subnet with static addressing
 - **Health Checks**: Automatic service monitoring and restart
 
@@ -126,15 +126,17 @@ The deployment script automatically stops common system DNS services:
 - bind9 (BIND DNS server)
 - dnsmasq (Lightweight DNS server)
 
+This allows SiNS to take over as the primary DNS server on the system.
+
 ### Static Network Configuration
 - **Subnet**: 172.20.0.0/16 with static IP addressing
 - **PostgreSQL**: 172.20.0.2
-- **DNS Server**: 172.20.0.3
-- **Port 53**: Freed from system services for DNS server use
+- **SiNS DNS Server**: 172.20.0.3
+- **Port 53**: Freed from system services for SiNS DNS server use
 
 ### Health Monitoring
 - PostgreSQL health check using `pg_isready`
-- DNS server health check using HTTP endpoint
+- SiNS DNS server health check using HTTP endpoint
 - Automatic service restart on failure
 - Service dependency management
 

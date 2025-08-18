@@ -5,10 +5,10 @@
 
 set -e
 
-echo "=== DNS Server Deployment Script ==="
+echo "=== SiNS DNS Server Deployment Script ==="
 echo "This script will:"
 echo "1. Stop system DNS resolver services"
-echo "2. Deploy our custom DNS server"
+echo "2. Deploy SiNS DNS server"
 echo "3. Configure network settings"
 echo ""
 
@@ -68,14 +68,14 @@ configure_network_dns() {
 
 # Function to deploy DNS server
 deploy_dns_server() {
-    echo "Deploying DNS server..."
+    echo "Deploying SiNS DNS server..."
     
     # Stop existing containers
     echo "Stopping existing containers..."
     docker-compose down 2>/dev/null || true
     
     # Build and start services
-    echo "Building and starting DNS server..."
+    echo "Building and starting SiNS DNS server..."
     docker-compose up -d --build
     
     # Wait for services to be healthy
@@ -100,7 +100,7 @@ deploy_dns_server() {
 
 # Function to test DNS server
 test_dns_server() {
-    echo "Testing DNS server..."
+    echo "Testing SiNS DNS server..."
     
     # Wait a moment for DNS server to be ready
     sleep 5
@@ -133,7 +133,7 @@ show_status() {
     
     echo ""
     echo "Network configuration:"
-    echo "DNS Server IP: 172.20.0.3"
+    echo "SiNS DNS Server IP: 172.20.0.3"
     echo "PostgreSQL IP: 172.20.0.2"
     echo "Network: 172.20.0.0/16"
     
@@ -169,7 +169,7 @@ main() {
     
     echo ""
     echo "=== Deployment Complete ==="
-    echo "Your DNS server is now running!"
+    echo "Your SiNS DNS server is now running!"
     echo "Web interface: http://localhost"
     echo "DNS server: 127.0.0.1:53"
 }

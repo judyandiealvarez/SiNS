@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get your DNS server up and running in minutes with this quick start guide.
+Get your SiNS (Simple Name Server) up and running in minutes with this quick start guide.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ git clone <repository-url>
 cd sins
 ```
 
-## Step 2: Deploy the DNS Server
+## Step 2: Deploy SiNS
 
 Run the automated deployment script:
 
@@ -29,7 +29,7 @@ sudo ./deploy.sh
 This script will:
 - Stop system DNS services
 - Configure network DNS settings
-- Deploy the DNS server with static IPs
+- Deploy SiNS with static IPs
 - Test the deployment
 - Show status information
 
@@ -43,7 +43,7 @@ This script will:
 
 ## Step 4: Test DNS Resolution
 
-Test that your DNS server is working:
+Test that your SiNS DNS server is working:
 
 ```bash
 # Test DNS resolution
@@ -76,7 +76,7 @@ dig @127.0.0.1 example.com
 
 ## Step 7: Configure Your System DNS
 
-Set your system to use the DNS server:
+Set your system to use SiNS:
 
 ```bash
 # Backup current DNS settings
@@ -92,7 +92,7 @@ sudo chattr +i /etc/resolv.conf
 
 ## Step 8: Verify Everything Works
 
-Test that your system is using the DNS server:
+Test that your system is using SiNS:
 
 ```bash
 # Test system DNS resolution
@@ -302,4 +302,4 @@ If you encounter issues:
 4. **Check the full documentation** for detailed guides
 5. **Community support**: Check project issues and discussions
 
-Your DNS server is now ready to serve your network! 🚀
+Your SiNS (Simple Name Server) is now ready to serve your network! 🚀

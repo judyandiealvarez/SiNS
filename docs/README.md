@@ -1,13 +1,13 @@
-# DNS Server Documentation
+# SiNS - Simple Name Server Documentation
 
-Welcome to the DNS Server documentation. This is a complete DNS server solution with web-based management interface, built with .NET 8, PostgreSQL, and Vue.js.
+Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[Si]mple [N]ame [S]erver** - a complete DNS server solution with web-based management interface, built with .NET 8, PostgreSQL, and Vue.js.
 
 ## 📚 Documentation Index
 
 ### Getting Started
 - [Installation Guide](installation.md) - Complete setup instructions
 - [Quick Start](quick-start.md) - Get up and running in minutes
-- [Configuration](configuration.md) - Server configuration options
+- [Configuration](configuration.md) - SiNS server configuration options
 
 ### User Guides
 - [Web Interface Guide](web-interface.md) - Using the management UI
@@ -23,7 +23,7 @@ Welcome to the DNS Server documentation. This is a complete DNS server solution 
 
 ### Technical Reference
 - [API Reference](api-reference.md) - Complete API documentation
-- [Architecture](architecture.md) - System architecture and design
+- [Architecture](architecture.md) - SiNS system architecture and design
 - [Database Schema](database-schema.md) - Database structure and relationships
 - [Network Configuration](network-config.md) - Network setup and static IPs
 
@@ -35,7 +35,7 @@ Welcome to the DNS Server documentation. This is a complete DNS server solution 
 ## 🚀 Quick Overview
 
 ### Features
-- **Hybrid DNS Server**: Authoritative and recursive DNS server
+- **SiNS Hybrid DNS Server**: Authoritative and recursive DNS server
 - **Web Management**: Modern Vue.js interface with Vuex state management
 - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
 - **Authentication**: JWT-based authentication with role-based access
@@ -53,7 +53,7 @@ Welcome to the DNS Server documentation. This is a complete DNS server solution 
           │ UDP/TCP:53           │ HTTP:80              │ UDP:53
           │                      │                      │
     ┌─────▼──────────────────────▼──────────────────────▼─────┐
-    │                    DNS Server                           │
+    │                  SiNS DNS Server                        │
     │  ┌─────────────────┐  ┌─────────────────┐              │
     │  │   DNS Engine    │  │   Web API       │              │
     │  │                 │  │                 │              │
@@ -78,7 +78,7 @@ Welcome to the DNS Server documentation. This is a complete DNS server solution 
 ### Network Configuration
 - **Subnet**: 172.20.0.0/16
 - **PostgreSQL**: 172.20.0.2
-- **DNS Server**: 172.20.0.3
+- **SiNS DNS Server**: 172.20.0.3
 - **Ports**: 53 (DNS), 80 (Web)
 
 ## 📋 Prerequisites

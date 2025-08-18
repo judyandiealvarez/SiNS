@@ -1,6 +1,6 @@
-# Architecture Documentation
+# SiNS Architecture Documentation
 
-This document provides a detailed overview of the DNS Server architecture, including system design, components, data flow, and technical decisions.
+This document provides a detailed overview of the SiNS (Simple Name Server) architecture, including system design, components, data flow, and technical decisions.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ This document provides a detailed overview of the DNS Server architecture, inclu
 
 ## System Overview
 
-The DNS Server is a hybrid authoritative and recursive DNS server with web-based management capabilities. It combines the functionality of a traditional DNS server with modern web technologies for easy management and monitoring.
+SiNS (Simple Name Server) is a hybrid authoritative and recursive DNS server with web-based management capabilities. It combines the functionality of a traditional DNS server with modern web technologies for easy management and monitoring.
 
 ### High-Level Architecture
 
@@ -30,7 +30,7 @@ The DNS Server is a hybrid authoritative and recursive DNS server with web-based
           │ UDP/TCP:53           │ HTTP:80              │ UDP:53
           │                      │                      │
     ┌─────▼──────────────────────▼──────────────────────▼─────┐
-    │                    DNS Server                           │
+    │                  SiNS DNS Server                        │
     │  ┌─────────────────┐  ┌─────────────────┐              │
     │  │   DNS Engine    │  │   Web API       │              │
     │  │                 │  │                 │              │
