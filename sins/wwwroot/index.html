@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS Server Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            border-radius: 8px;
+            margin: 2px 0;
+            transition: all 0.3s ease;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        .main-content {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        .badge {
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-3 col-lg-2 px-0">
+                    <div class="sidebar p-3">
+                        <div class="text-center mb-4">
+                            <h4 class="text-white mb-0">
+                                <i class="fas fa-server me-2"></i>DNS Server
+                            </h4>
+                            <small class="text-white-50">Management Console</small>
+                        </div>
+                        
+                        <nav class="nav flex-column">
+                            <a class="nav-link" :class="{ active: currentSection === 'dashboard' }" 
+                               @click="showSection('dashboard')" href="#">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                            <a class="nav-link" :class="{ active: currentSection === 'records' }" 
+                               @click="showSection('records')" href="#">
+                                <i class="fas fa-list me-2"></i>DNS Records
+                            </a>
+                            <a class="nav-link" :class="{ active: currentSection === 'cache' }" 
+                               @click="showSection('cache')" href="#">
+                                <i class="fas fa-database me-2"></i>Cache
+                            </a>
+                            <a class="nav-link" :class="{ active: currentSection === 'settings' }" 
+                               @click="showSection('settings')" href="#">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a>
+                            <a class="nav-link" :class="{ active: currentSection === 'users' }" 
+                               @click="showSection('users')" href="#">
+                                <i class="fas fa-users me-2"></i>Users
+                            </a>
+                        </nav>
+
+                        <div class="mt-auto pt-3" v-if="currentUser">
+                            <div class="text-white-50 small">
+                                <div>Logged in as: <strong>{{ currentUser.username }}</strong></div>
+                                <button @click="logout" class="btn btn-outline-light btn-sm w-100 mt-2">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-md-9 col-lg-10">
+                    <div class="main-content p-4">
+                        <!-- Login Form -->
+                        <div v-if="!isAuthenticated" class="row justify-content-center">
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card">
+                                    <div class="card-body p-4">
+                                        <h3 class="text-center mb-4">
+                                            <i class="fas fa-lock me-2"></i>Login
+                                        </h3>
+                                        <form @submit.prevent="login">
+                                            <div class="mb-3">
+                                                <label class="form-label">Username</label>
+                                                <input type="text" class="form-control" v-model="loginForm.username" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Password</label>
+                                                <input type="password" class="form-control" v-model="loginForm.password" required>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100" :disabled="loading">
+                                                <span v-if="loading" class="loading me-2"></span>
+                                                <i v-else class="fas fa-sign-in-alt me-2"></i>
+                                                {{ loading ? 'Logging in...' : 'Login' }}
+                                            </button>
+                                        </form>
+                                        <div v-if="error" class="alert alert-danger mt-3">
+                                            {{ error }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard -->
+                        <div v-else-if="currentSection === 'dashboard'">
+                            <h2 class="mb-4">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </h2>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <i class="fas fa-list fa-2x text-primary mb-2"></i>
+                                            <h4>{{ stats.totalRecords }}</h4>
+                                            <p class="text-muted mb-0">DNS Records</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <i class="fas fa-database fa-2x text-success mb-2"></i>
+                                            <h4>{{ stats.totalCache }}</h4>
+                                            <p class="text-muted mb-0">Cache Entries</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <i class="fas fa-users fa-2x text-info mb-2"></i>
+                                            <h4>{{ stats.totalUsers }}</h4>
+                                            <p class="text-muted mb-0">Users</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                                            <h4>{{ stats.expiredCache }}</h4>
+                                            <p class="text-muted mb-0">Expired Cache</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DNS Records -->
+                        <div v-else-if="currentSection === 'records'">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2><i class="fas fa-list me-2"></i>DNS Records</h2>
+                                <button @click="openAddRecordModal" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Add Record
+                                </button>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Type</th>
+                                                    <th>Value</th>
+                                                    <th>TTL</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="record in records" :key="record.id">
+                                                    <td>{{ record.name }}</td>
+                                                    <td><span class="badge bg-primary">{{ record.type }}</span></td>
+                                                    <td>{{ record.value }}</td>
+                                                    <td>{{ record.ttl }}</td>
+                                                    <td>
+                                                        <button @click="editRecord(record)" class="btn btn-sm btn-outline-primary me-1">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button @click="deleteRecord(record.id)" class="btn btn-sm btn-outline-danger">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cache -->
+                        <div v-else-if="currentSection === 'cache'">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2><i class="fas fa-database me-2"></i>Cache</h2>
+                                <div>
+                                    <button @click="clearExpiredCache" class="btn btn-warning me-2">
+                                        <i class="fas fa-broom me-2"></i>Clear Expired
+                                    </button>
+                                    <button @click="clearAllCache" class="btn btn-danger">
+                                        <i class="fas fa-trash me-2"></i>Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Type</th>
+                                                    <th>Resolved IPs</th>
+                                                    <th>Response Size</th>
+                                                    <th>Upstream Server</th>
+                                                    <th>Cached At</th>
+                                                    <th>Expires At</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="cache in cacheRecords" :key="cache.id">
+                                                    <td>{{ cache.name }}</td>
+                                                    <td><span class="badge bg-info">{{ cache.type }}</span></td>
+                                                    <td>{{ cache.resolvedIPs || 'N/A' }}</td>
+                                                    <td>{{ cache.responseSize }} bytes</td>
+                                                    <td>{{ cache.upstreamServer || 'N/A' }}</td>
+                                                    <td>{{ formatDate(cache.cachedAt) }}</td>
+                                                    <td>
+                                                        <span :class="isExpired(cache.expiresAt) ? 'text-danger' : 'text-success'">
+                                                            {{ formatDate(cache.expiresAt) }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings -->
+                        <div v-else-if="currentSection === 'settings'">
+                            <h2 class="mb-4"><i class="fas fa-cog me-2"></i>Settings</h2>
+                            <div class="card">
+                                <div class="card-body">
+                                    <form @submit.prevent="saveSettings">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Cache Timeout (minutes)</label>
+                                                <input type="number" class="form-control" v-model="settings.cacheTimeoutMinutes" 
+                                                       min="1" max="1440" required>
+                                                <div class="form-text">How long to keep cache entries (1-1440 minutes)</div>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">UDP Port</label>
+                                                <input type="number" class="form-control" v-model="settings.udpPort" 
+                                                       min="1" max="65535" required>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">TCP Port</label>
+                                                <input type="number" class="form-control" v-model="settings.tcpPort" 
+                                                       min="1" max="65535" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Upstream DNS Servers</label>
+                                                <textarea class="form-control" v-model="upstreamServersText" rows="3" 
+                                                          placeholder="8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
+                                                <div class="form-text">One server per line</div>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary" :disabled="loading">
+                                            <span v-if="loading" class="loading me-2"></span>
+                                            <i v-else class="fas fa-save me-2"></i>
+                                            {{ loading ? 'Saving...' : 'Save Settings' }}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Users -->
+                        <div v-else-if="currentSection === 'users'">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2><i class="fas fa-users me-2"></i>Users</h2>
+                                <button @click="openAddUserModal" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Add User
+                                </button>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Username</th>
+                                                    <th>Email</th>
+                                                    <th>Role</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="user in users" :key="user.id">
+                                                    <td>{{ user.username }}</td>
+                                                    <td>{{ user.email }}</td>
+                                                    <td><span class="badge" :class="user.role === 'Admin' ? 'bg-danger' : 'bg-secondary'">{{ user.role }}</span></td>
+                                                    <td>
+                                                        <button @click="deleteUser(user.id)" class="btn btn-sm btn-outline-danger">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Record Modal -->
+        <div v-if="showAddRecordModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add DNS Record</h5>
+                        <button @click="closeAddRecordModal" class="btn-close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addRecordForm">
+                            <div class="mb-3">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-control" v-model="newRecord.name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Type</label>
+                                <select class="form-select" v-model="newRecord.type" required>
+                                    <option value="A">A</option>
+                                    <option value="AAAA">AAAA</option>
+                                    <option value="CNAME">CNAME</option>
+                                    <option value="MX">MX</option>
+                                    <option value="TXT">TXT</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Value</label>
+                                <input type="text" class="form-control" v-model="newRecord.value" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">TTL</label>
+                                <input type="number" class="form-control" v-model="newRecord.ttl" min="1" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button @click="closeAddRecordModal" class="btn btn-secondary">Cancel</button>
+                        <button @click="submitAddRecord" class="btn btn-primary">Add Record</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Record Modal -->
+        <div v-if="showEditRecordModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit DNS Record</h5>
+                        <button @click="closeEditRecordModal" class="btn-close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editRecordForm">
+                            <div class="mb-3">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-control" v-model="editingRecord.name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Type</label>
+                                <select class="form-select" v-model="editingRecord.type" required>
+                                    <option value="A">A</option>
+                                    <option value="AAAA">AAAA</option>
+                                    <option value="CNAME">CNAME</option>
+                                    <option value="MX">MX</option>
+                                    <option value="TXT">TXT</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Value</label>
+                                <input type="text" class="form-control" v-model="editingRecord.value" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">TTL</label>
+                                <input type="number" class="form-control" v-model="editingRecord.ttl" min="1" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button @click="closeEditRecordModal" class="btn btn-secondary">Cancel</button>
+                        <button @click="submitEditRecord" class="btn btn-primary">Update Record</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add User Modal -->
+        <div v-if="showAddUserModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add User</h5>
+                        <button @click="showAddUserModal = false" class="btn-close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="addUser">
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" v-model="newUser.username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" v-model="newUser.email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" v-model="newUser.password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" v-model="newUser.role" required>
+                                    <option value="User">User</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button @click="showAddUserModal = false" class="btn btn-secondary">Cancel</button>
+                        <button @click="addUser" class="btn btn-primary">Add User</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue.js and Vuex -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/vuex@4/dist/vuex.global.prod.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
