@@ -82,10 +82,8 @@ jobs:
         log "Cleaning up old images..."
         docker image prune -f || true
         
-        # Stop systemd-resolved to free port 53 for production DNS server
-        log "Stopping systemd-resolved to free port 53..."
-        sudo systemctl stop systemd-resolved
-        sudo systemctl disable systemd-resolved
+        # Port 53 should already be free (systemd-resolved stopped)
+        log "Port 53 should be free for DNS server..."
         sleep 2
         
         # Start services
