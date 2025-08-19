@@ -8,6 +8,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 - [Installation Guide](installation.md) - Complete setup instructions
 - [Quick Start](quick-start.md) - Get up and running in minutes
 - [Configuration](configuration.md) - SiNS server configuration options
+- [Docker Hub Overview](dockerhub-overview.md) - Comprehensive Docker Hub guide
 - [Docker Hub Setup](docker-hub-setup.md) - Docker Hub integration setup
 
 ### User Guides
