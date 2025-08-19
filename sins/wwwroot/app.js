@@ -238,7 +238,7 @@ const store = Vuex.createStore({
         
         async loadVersion({ commit }) {
             try {
-                const response = await fetch('/api/version');
+                const response = await fetch('/api/dns/version');
                 if (response.ok) {
                     const data = await response.json();
                     commit('SET_VERSION', data.version);
