@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: docker-build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
         run: dotnet test --no-build --verbosity normal
 
   build-docker:
-    runs-on: ubuntu-latest
+    runs-on: docker-build
     needs: test
     environment: public
     permissions:
@@ -78,7 +78,7 @@ jobs:
 
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: docker-build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
         run: dotnet format --verify-no-changes --verbosity diagnostic
 
   dockerfile-lint:
-    runs-on: ubuntu-latest
+    runs-on: docker-build
     permissions:
       contents: read
       security-events: write
