@@ -78,6 +78,11 @@ jobs:
         log "Cleaning up old images..."
         docker image prune -f || true
         
+        # Stop systemd-resolved to free port 53
+        log "Stopping systemd-resolved to free port 53..."
+        sudo systemctl stop systemd-resolved || true
+        sudo systemctl disable systemd-resolved || true
+        
         # Start services
         log "Starting services with latest image..."
         docker compose up -d
