@@ -1,13 +1,17 @@
 name: Deploy to Production Server (Self-Hosted)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [ main ]
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   deploy:
     runs-on: self-hosted # Use self-hosted runner
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
     - name: Checkout code
