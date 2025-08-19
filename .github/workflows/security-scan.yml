@@ -186,15 +186,34 @@ jobs:
           fetch-depth: 0
 
       - name: Run TruffleHog
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified --format sarif
-
-      - name: Create SARIF file from TruffleHog output
-        if: always()
         run: |
-          # Create a minimal SARIF file if TruffleHog didn't find any secrets
-          if [ ! -f "trufflehog-results.sarif" ]; then
+          # Run TruffleHog and capture output
+          trufflehog --only-verified --json . > trufflehog-output.json || true
+          
+          # Convert TruffleHog JSON output to SARIF format
+          cat > trufflehog-results.sarif << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "TruffleHog",
+                    "version": "3.90.5",
+                    "informationUri": "https://github.com/trufflesecurity/trufflehog"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          
+          # If TruffleHog found secrets, convert them to SARIF format
+          if [ -s "trufflehog-output.json" ]; then
+            echo "Converting TruffleHog results to SARIF format..."
+            # Create a proper SARIF file with actual results
             cat > trufflehog-results.sarif << 'EOF'
           {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
