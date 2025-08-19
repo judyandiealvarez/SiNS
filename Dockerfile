@@ -4,6 +4,14 @@ EXPOSE 80
 EXPOSE 443
 EXPOSE 53
 
+# Build arguments for version
+ARG BUILD_NUMBER=0
+ARG APP_VERSION=1.0.0
+
+# Set environment variables
+ENV BUILD_NUMBER=$BUILD_NUMBER
+ENV APP_VERSION=$APP_VERSION
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ["sins/sins.csproj", "sins/"]

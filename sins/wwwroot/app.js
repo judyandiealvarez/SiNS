@@ -6,6 +6,9 @@ const store = Vuex.createStore({
             token: localStorage.getItem('token') || null,
             currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null') || null,
             
+            // Version
+            version: '1.0.0.0',
+            
             // UI State
             loading: false,
             error: null,
@@ -169,6 +172,10 @@ const store = Vuex.createStore({
         
         UPDATE_UPSTREAM_SERVERS_TEXT(state, text) {
             state.settings.upstreamServers = text.split('\n').filter(s => s.trim());
+        },
+        
+        SET_VERSION(state, version) {
+            state.version = version;
         }
     },
     
@@ -226,6 +233,18 @@ const store = Vuex.createStore({
                 }
             } catch (error) {
                 console.error('Failed to load dashboard:', error);
+            }
+        },
+        
+        async loadVersion({ commit }) {
+            try {
+                const response = await fetch('/api/version');
+                if (response.ok) {
+                    const data = await response.json();
+                    commit('SET_VERSION', data.version);
+                }
+            } catch (error) {
+                console.error('Failed to load version:', error);
             }
         },
         
@@ -550,7 +569,7 @@ const app = Vue.createApp({
     computed: {
         ...Vuex.mapState([
             'token', 'currentUser', 'loading', 'error', 'currentSection',
-            'stats', 'records', 'cacheRecords', 'users', 'settings',
+            'stats', 'records', 'cacheRecords', 'users', 'settings', 'version',
             'showAddRecordModal', 'showEditRecordModal', 'showAddUserModal',
             'loginForm', 'newRecord', 'editingRecord', 'newUser'
         ]),
@@ -570,7 +589,7 @@ const app = Vue.createApp({
     methods: {
         ...Vuex.mapActions([
             'login', 'logout', 'loadDashboard', 'loadRecords', 'loadCache',
-            'loadUsers', 'loadSettings', 'addRecord', 'deleteRecord', 'updateRecord',
+            'loadUsers', 'loadSettings', 'loadVersion', 'addRecord', 'deleteRecord', 'updateRecord',
             'clearExpiredCache', 'clearAllCache', 'saveSettings',
             'addUser', 'deleteUser', 'showSection'
         ]),
@@ -632,6 +651,9 @@ const app = Vue.createApp({
     },
     
     mounted() {
+        // Load version info
+        this.loadVersion();
+        
         // Auto-load dashboard if authenticated
         if (this.isAuthenticated) {
             this.loadDashboard();
