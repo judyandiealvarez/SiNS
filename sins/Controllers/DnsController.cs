@@ -352,7 +352,7 @@ public class DnsController : ControllerBase
     {
         var version = Environment.GetEnvironmentVariable("APP_VERSION") ?? "1.0.0.0";
         var buildNumber = Environment.GetEnvironmentVariable("BUILD_NUMBER") ?? "0";
-        
+
         return Ok(new { version = $"{version}.{buildNumber}" });
     }
 }
