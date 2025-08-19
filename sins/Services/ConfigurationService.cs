@@ -45,7 +45,7 @@ public class ConfigurationService : IConfigurationService
         try
         {
             var config = await _context.ServerConfigs.FirstOrDefaultAsync(c => c.Key == key);
-            
+
             if (config == null)
             {
                 config = new ServerConfig

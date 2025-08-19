@@ -102,7 +102,7 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
     context.Database.EnsureCreated();
-    
+
     // Create default admin user if no users exist
     if (!context.Users.Any())
     {
@@ -116,11 +116,11 @@ using (var scope = app.Services.CreateScope())
     {
         // Check if ServerConfigs table exists and has any records
         var hasConfigs = await context.ServerConfigs.AnyAsync();
-        
+
         if (!hasConfigs)
         {
             var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
-            
+
             await configService.SetValueAsync("CacheTimeoutMinutes", "60", "System");
             await configService.SetValueAsync("UdpPort", "53", "System");
             await configService.SetValueAsync("TcpPort", "53", "System");

@@ -18,7 +18,7 @@ namespace sins.Tests
             // Test that SiNS name is correct
             string sinsName = "SiNS";
             string fullName = "Simple Name Server";
-            
+
             Assert.AreEqual("SiNS", sinsName);
             Assert.AreEqual("Simple Name Server", fullName);
         }

@@ -24,12 +24,12 @@ public class DnsServer : BackgroundService
         _logger = logger;
         _serviceProvider = serviceProvider;
         _configService = configService;
-        
+
         // Initialize with default values, will be updated in ExecuteAsync
         _udpPort = 53;
         _tcpPort = 53;
         _upstreamServers = new[] { "8.8.8.8", "1.1.1.1" };
-        
+
         _udpClient = new UdpClient();
         _tcpListener = new TcpListener(IPAddress.Any, _tcpPort);
     }
@@ -40,19 +40,19 @@ public class DnsServer : BackgroundService
         {
             // Load configuration from database
             await LoadConfigurationAsync();
-            
+
             _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, _udpPort));
-            
+
             _tcpListener.Start();
-            
+
             _logger.LogInformation("DNS Server started on UDP port {UdpPort} and TCP port {TcpPort}", _udpPort, _tcpPort);
-            
+
             var udpTask = HandleUdpRequestsAsync(stoppingToken);
             var tcpTask = HandleTcpRequestsAsync(stoppingToken);
             var cacheCleanupTask = CleanupExpiredCacheAsync(stoppingToken);
             var configReloadTask = ReloadConfigurationAsync(stoppingToken);
-            
+
             await Task.WhenAll(udpTask, tcpTask, cacheCleanupTask, configReloadTask);
         }
         catch (Exception ex)
@@ -73,8 +73,8 @@ public class DnsServer : BackgroundService
             _udpPort = await _configService.GetIntValueAsync("UdpPort", 53);
             _tcpPort = await _configService.GetIntValueAsync("TcpPort", 53);
             _upstreamServers = await _configService.GetStringArrayValueAsync("UpstreamServers", new[] { "8.8.8.8", "1.1.1.1" });
-            
-            _logger.LogInformation("Configuration loaded - UDP: {UdpPort}, TCP: {TcpPort}, Upstream: {UpstreamServers}", 
+
+            _logger.LogInformation("Configuration loaded - UDP: {UdpPort}, TCP: {TcpPort}, Upstream: {UpstreamServers}",
                 _udpPort, _tcpPort, string.Join(", ", _upstreamServers));
         }
         catch (Exception ex)
@@ -158,24 +158,24 @@ public class DnsServer : BackgroundService
             {
                 var stream = client.GetStream();
                 var buffer = new byte[2];
-                
+
                 // Read length prefix
                 await stream.ReadAsync(buffer, 0, 2, stoppingToken);
                 var length = (buffer[0] << 8) | buffer[1];
-                
+
                 // Read DNS message
                 var dnsMessage = new byte[length];
                 await stream.ReadAsync(dnsMessage, 0, length, stoppingToken);
-                
+
                 var response = await ProcessDnsRequestAsync(dnsMessage, client.Client.RemoteEndPoint!, true, stoppingToken);
-                
+
                 if (response != null)
                 {
                     // Write length prefix
                     var responseLength = (ushort)response.Length;
                     var lengthBytes = new byte[] { (byte)(responseLength >> 8), (byte)(responseLength & 0xFF) };
                     await stream.WriteAsync(lengthBytes, 0, 2, stoppingToken);
-                    
+
                     // Write response
                     await stream.WriteAsync(response, 0, response.Length, stoppingToken);
                 }
@@ -293,12 +293,12 @@ public class DnsServer : BackgroundService
         using var client = new UdpClient();
         client.Client.ReceiveTimeout = 5000;
         client.Client.SendTimeout = 5000;
-        
+
         var endpoint = new IPEndPoint(IPAddress.Parse(server), 53);
-        
+
         var request = CreateDnsRequest(dnsMessage);
         await client.SendAsync(request, request.Length, endpoint);
-        
+
         var response = await client.ReceiveAsync(stoppingToken);
         return response.Buffer;
     }
@@ -326,7 +326,7 @@ public class DnsServer : BackgroundService
             // Remove existing cache entry
             var existing = await context.CacheRecords
                 .FirstOrDefaultAsync(c => c.Name == name && c.Type == type);
-            
+
             if (existing != null)
             {
                 context.CacheRecords.Remove(existing);
@@ -397,40 +397,40 @@ public class DnsServer : BackgroundService
     private DnsMessage? ParseDnsMessage(byte[] data)
     {
         if (data.Length < 12) return null;
-        
+
         try
         {
             // Extract transaction ID (first 2 bytes)
             var transactionId = (data[0] << 8) | data[1];
-            
+
             // Extract flags (bytes 2-3)
             var flags = (data[2] << 8) | data[3];
             var isQuery = (flags & 0x8000) == 0;
-            
+
             if (!isQuery) return null; // Only handle queries
-            
+
             // Extract question count (bytes 4-5)
             var questionCount = (data[4] << 8) | data[5];
-            
+
             if (questionCount != 1) return null; // Only handle single question
-            
+
             // Parse the question section
             var name = ExtractName(data, 12);
             if (string.IsNullOrEmpty(name)) return null;
-            
+
             // Find the end of the name
             var pos = 12;
             while (pos < data.Length && data[pos] != 0) pos++;
             pos++; // Skip the null terminator
-            
+
             if (pos + 4 > data.Length) return null;
-            
+
             // Extract type and class
             var type = (data[pos] << 8) | data[pos + 1];
             var dnsClass = (data[pos + 2] << 8) | data[pos + 3];
-            
+
             if (dnsClass != 1) return null; // Only handle IN class
-            
+
             return new DnsMessage
             {
                 TransactionId = (ushort)transactionId,
@@ -451,17 +451,17 @@ public class DnsServer : BackgroundService
         {
             var name = new StringBuilder();
             var pos = offset;
-            
+
             while (pos < data.Length && data[pos] != 0)
             {
                 var length = data[pos++];
                 if (pos + length > data.Length) break;
-                
+
                 if (name.Length > 0) name.Append('.');
                 name.Append(Encoding.ASCII.GetString(data, pos, length));
                 pos += length;
             }
-            
+
             return name.ToString();
         }
         catch
@@ -488,7 +488,7 @@ public class DnsServer : BackgroundService
     private byte[] CreateDnsRequest(DnsMessage dnsMessage)
     {
         var request = new List<byte>();
-        
+
         // Header
         request.AddRange(new byte[] { 0x00, 0x01 }); // ID
         request.AddRange(new byte[] { 0x01, 0x00 }); // Flags
@@ -496,7 +496,7 @@ public class DnsServer : BackgroundService
         request.AddRange(new byte[] { 0x00, 0x00 }); // Answers
         request.AddRange(new byte[] { 0x00, 0x00 }); // Authority
         request.AddRange(new byte[] { 0x00, 0x00 }); // Additional
-        
+
         // Question
         var nameParts = dnsMessage.Name.Split('.');
         foreach (var part in nameParts)
@@ -505,13 +505,13 @@ public class DnsServer : BackgroundService
             request.AddRange(Encoding.ASCII.GetBytes(part));
         }
         request.Add(0x00); // End of name
-        
+
         // Type and Class
         var type = GetDnsTypeInt(dnsMessage.Type);
         request.Add((byte)(type >> 8));
         request.Add((byte)(type & 0xFF));
         request.AddRange(new byte[] { 0x00, 0x01 }); // Class IN
-        
+
         return request.ToArray();
     }
 
@@ -534,64 +534,64 @@ public class DnsServer : BackgroundService
     {
         // For cached responses, we need to modify the cached response to use the original transaction ID
         var response = (byte[])cachedResponse.Clone();
-        
+
         // Set the transaction ID from the original request
         response[0] = request[0];
         response[1] = request[1];
-        
+
         return response;
     }
 
     private byte[] CreateAuthoritativeResponse(byte[] request, DnsMessage dnsMessage, DnsRecord record)
     {
         var response = new List<byte>();
-        
+
         // Copy header from request
         response.AddRange(request.Take(12));
-        
+
         // Set response flags (QR=1, AA=1, RA=1)
         response[2] = 0x84; // Response + Authoritative
         response[3] = 0x80; // Recursion available
-        
+
         // Set answer count to 1
         response[6] = 0x00;
         response[7] = 0x01;
-        
+
         // Copy question section
         var questionEnd = 12;
         while (questionEnd < request.Length && request[questionEnd] != 0) questionEnd++;
         questionEnd += 5; // Include null terminator and type/class
         response.AddRange(request.Skip(12).Take(questionEnd - 12));
-        
+
         // Add answer section
         response.AddRange(CreateAnswerSection(dnsMessage.Name, dnsMessage.Type, record.Value, record.Ttl));
-        
+
         return response.ToArray();
     }
 
     private byte[] CreateAnswerSection(string name, string type, string value, int ttl)
     {
         var answer = new List<byte>();
-        
+
         // Name (compressed)
         answer.Add(0xC0); // Compression pointer
         answer.Add(0x0C); // Offset to name in question section
-        
+
         // Type
         var typeInt = GetDnsTypeInt(type);
         answer.Add((byte)(typeInt >> 8));
         answer.Add((byte)(typeInt & 0xFF));
-        
+
         // Class (IN)
         answer.Add(0x00);
         answer.Add(0x01);
-        
+
         // TTL
         answer.Add((byte)(ttl >> 24));
         answer.Add((byte)(ttl >> 16));
         answer.Add((byte)(ttl >> 8));
         answer.Add((byte)(ttl & 0xFF));
-        
+
         // Data length and value
         if (type.ToUpper() == "A")
         {
@@ -610,7 +610,7 @@ public class DnsServer : BackgroundService
             answer.Add(0x04);
             answer.AddRange(new byte[] { 192, 168, 1, 1 });
         }
-        
+
         return answer.ToArray();
     }
 

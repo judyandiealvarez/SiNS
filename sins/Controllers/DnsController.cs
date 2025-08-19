@@ -37,7 +37,7 @@ public class DnsController : ControllerBase
     public async Task<IActionResult> GetRecord(int id)
     {
         var record = await _context.DnsRecords.FindAsync(id);
-        
+
         if (record == null)
         {
             return NotFound();
@@ -77,7 +77,7 @@ public class DnsController : ControllerBase
     public async Task<IActionResult> UpdateRecord(int id, [FromBody] UpdateDnsRecordRequest request)
     {
         var record = await _context.DnsRecords.FindAsync(id);
-        
+
         if (record == null)
         {
             return NotFound();
@@ -99,7 +99,7 @@ public class DnsController : ControllerBase
     public async Task<IActionResult> DeleteRecord(int id)
     {
         var record = await _context.DnsRecords.FindAsync(id);
-        
+
         if (record == null)
         {
             return NotFound();
@@ -142,7 +142,7 @@ public class DnsController : ControllerBase
             {
                 var responseBytes = Convert.FromBase64String(record.Response);
                 var resolvedIps = ExtractIpsFromDnsResponse(responseBytes, record.Type);
-                
+
                 detailedRecords.Add(new
                 {
                     record.Id,
@@ -178,14 +178,14 @@ public class DnsController : ControllerBase
     private List<string> ExtractIpsFromDnsResponse(byte[] response, string type)
     {
         var ips = new List<string>();
-        
+
         try
         {
             if (response.Length < 12) return ips;
 
             // Parse DNS header
             var answerCount = (response[6] << 8) | response[7];
-            
+
             if (answerCount == 0) return ips;
 
             // For A records, look for the last 4 bytes which should be the IP address

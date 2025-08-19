@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
         }
 
         var token = await _authService.AuthenticateAsync(request.Username, request.Password);
-        
+
         if (token == null)
         {
             return Unauthorized(new { message = "Invalid username or password" });
@@ -47,7 +47,7 @@ public class AuthController : ControllerBase
         }
 
         var success = await _authService.CreateUserAsync(request.Username, request.Password, request.Email, request.Role);
-        
+
         if (!success)
         {
             return BadRequest(new { message = "Username or email already exists" });
@@ -80,7 +80,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> DeleteUser(int id)
     {
         var user = await _context.Users.FindAsync(id);
-        
+
         if (user == null)
         {
             return NotFound();
