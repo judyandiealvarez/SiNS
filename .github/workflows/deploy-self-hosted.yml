@@ -61,8 +61,6 @@ jobs:
         
         # Remove volumes mount for wwwroot (we don't need it)
         sed -i '/      - .\/sins\/wwwroot:\/app\/wwwroot/d' "$DOCKER_COMPOSE_FILE.tmp"
-        # Remove empty volumes section for dns-server
-        sed -i '/^    volumes:$/d' "$DOCKER_COMPOSE_FILE.tmp"
         
         # Move to final location
         mv "$DOCKER_COMPOSE_FILE.tmp" "$DOCKER_COMPOSE_FILE"
