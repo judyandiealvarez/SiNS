@@ -26,6 +26,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 - [Architecture](architecture.md) - SiNS system architecture and design
 - [Database Schema](database-schema.md) - Database structure and relationships
 - [Network Configuration](network-config.md) - Network setup and static IPs
+- [GitHub Actions](github-actions.md) - CI/CD workflows and automation
 
 ### Development
 - [Development Setup](development.md) - Setting up development environment

@@ -1,0 +1,77 @@
+name: Dependency Update
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Update .NET dependencies
+        run: |
+          # Update NuGet packages
+          dotnet list package --outdated
+          dotnet add package Microsoft.EntityFrameworkCore --version latest
+          dotnet add package Microsoft.EntityFrameworkCore.Design --version latest
+          dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL --version latest
+          dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version latest
+          dotnet add package BCrypt.Net-Next --version latest
+          dotnet add package Microsoft.AspNetCore.SignalR --version latest
+          dotnet add package Swashbuckle.AspNetCore --version latest
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update dependencies'
+          title: 'chore: update dependencies'
+          body: |
+            ## 🔄 Dependency Updates
+            
+            This PR updates the following dependencies:
+            
+            - .NET packages to latest versions
+            - Security updates
+            
+            ### Changes Made
+            
+            - Updated NuGet packages to latest stable versions
+            - Applied security patches
+            
+            ### Testing
+            
+            - [ ] All tests pass
+            - [ ] Docker build succeeds
+            - [ ] No breaking changes
+            
+            ### Notes
+            
+            This is an automated dependency update. Please review the changes and test thoroughly before merging.
+          branch: dependency-update/$(date +%Y%m%d)
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
