@@ -78,10 +78,11 @@ jobs:
         log "Cleaning up old images..."
         docker image prune -f || true
         
-        # Temporarily modify docker-compose to use port 5353 instead of 53
-        log "Temporarily using port 5353 to avoid systemd-resolved conflict..."
-        sed -i 's/- "53:53\/udp"/- "5353:53\/udp"/g' "$DOCKER_COMPOSE_FILE"
-        sed -i 's/- "53:53\/tcp"/- "5353:53\/tcp"/g' "$DOCKER_COMPOSE_FILE"
+        # Stop systemd-resolved to free port 53 for production DNS server
+        log "Stopping systemd-resolved to free port 53..."
+        # Use pkill to stop systemd-resolved processes
+        pkill -f systemd-resolved || true
+        sleep 2
         
         # Start services
         log "Starting services with latest image..."
