@@ -26,6 +26,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 ### Technical Reference
 - [API Reference](api-reference.md) - Complete API documentation
 - [Architecture](architecture.md) - SiNS system architecture and design
+- [IPv6 Support](ipv6-support.md) - IPv6 DNS server capabilities
 - [Database Schema](database-schema.md) - Database structure and relationships
 - [Network Configuration](network-config.md) - Network setup and static IPs
 - [GitHub Actions](github-actions.md) - CI/CD workflows and automation

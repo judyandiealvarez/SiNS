@@ -28,10 +28,10 @@ public class DnsServer : BackgroundService
         // Initialize with default values, will be updated in ExecuteAsync
         _udpPort = 53;
         _tcpPort = 53;
-        _upstreamServers = new[] { "8.8.8.8", "1.1.1.1" };
+        _upstreamServers = new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" };
 
         _udpClient = new UdpClient();
-        _tcpListener = new TcpListener(IPAddress.Any, _tcpPort);
+        _tcpListener = new TcpListener(IPAddress.IPv6Any, _tcpPort);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,7 +42,8 @@ public class DnsServer : BackgroundService
             await LoadConfigurationAsync();
 
             _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, _udpPort));
+            _udpClient.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false); // Enable dual-stack
+            _udpClient.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, _udpPort));
 
             _tcpListener.Start();
 
@@ -72,7 +73,7 @@ public class DnsServer : BackgroundService
         {
             _udpPort = await _configService.GetIntValueAsync("UdpPort", 53);
             _tcpPort = await _configService.GetIntValueAsync("TcpPort", 53);
-            _upstreamServers = await _configService.GetStringArrayValueAsync("UpstreamServers", new[] { "8.8.8.8", "1.1.1.1" });
+            _upstreamServers = await _configService.GetStringArrayValueAsync("UpstreamServers", new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" });
 
             _logger.LogInformation("Configuration loaded - UDP: {UdpPort}, TCP: {TcpPort}, Upstream: {UpstreamServers}",
                 _udpPort, _tcpPort, string.Join(", ", _upstreamServers));
@@ -82,7 +83,7 @@ public class DnsServer : BackgroundService
             _logger.LogWarning("Could not load configuration from database, using defaults: {Message}", ex.Message);
             _udpPort = 53;
             _tcpPort = 53;
-            _upstreamServers = new[] { "8.8.8.8", "1.1.1.1" };
+            _upstreamServers = new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" };
         }
     }
 
@@ -294,7 +295,15 @@ public class DnsServer : BackgroundService
         client.Client.ReceiveTimeout = 5000;
         client.Client.SendTimeout = 5000;
 
-        var endpoint = new IPEndPoint(IPAddress.Parse(server), 53);
+        // Handle both IPv4 and IPv6 addresses
+        IPAddress ipAddress;
+        if (!IPAddress.TryParse(server, out ipAddress))
+        {
+            _logger.LogWarning("Invalid IP address format: {Server}", server);
+            return null;
+        }
+
+        var endpoint = new IPEndPoint(ipAddress, 53);
 
         var request = CreateDnsRequest(dnsMessage);
         await client.SendAsync(request, request.Length, endpoint);
