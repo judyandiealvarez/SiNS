@@ -54,19 +54,8 @@ jobs:
         
         # Copy docker-compose.yml from repository
         log "Copying docker-compose.yml from repository..."
-        cp "$GITHUB_WORKSPACE/docker-compose.yml" "$DOCKER_COMPOSE_FILE.tmp"
-        
-        # Remove version line (obsolete warning)
-        sed -i '/^version:/d' "$DOCKER_COMPOSE_FILE.tmp"
-        
-        # Remove volumes mount for wwwroot (we don't need it)
-        sed -i '/      - .\/sins\/wwwroot:\/app\/wwwroot/d' "$DOCKER_COMPOSE_FILE.tmp"
-        # Remove empty volumes section for dns-server
-        sed -i '/^    volumes:$/d' "$DOCKER_COMPOSE_FILE.tmp"
-        
-        # Move to final location
-        mv "$DOCKER_COMPOSE_FILE.tmp" "$DOCKER_COMPOSE_FILE"
-        log_success "docker-compose.yml updated successfully"
+        cp "$GITHUB_WORKSPACE/docker-compose.yml" "$DOCKER_COMPOSE_FILE"
+        log_success "docker-compose.yml copied successfully"
         
         # Pull latest Docker image
         log "Pulling latest Docker image..."
