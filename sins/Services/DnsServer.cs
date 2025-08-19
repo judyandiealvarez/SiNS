@@ -31,7 +31,7 @@ public class DnsServer : BackgroundService
         _upstreamServers = new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" };
 
         _udpClient = new UdpClient();
-        _tcpListener = new TcpListener(IPAddress.IPv6Any, _tcpPort);
+        _tcpListener = new TcpListener(IPAddress.Any, _tcpPort);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,8 +42,7 @@ public class DnsServer : BackgroundService
             await LoadConfigurationAsync();
 
             _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _udpClient.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false); // Enable dual-stack
-            _udpClient.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, _udpPort));
+            _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, _udpPort));
 
             _tcpListener.Start();
 
