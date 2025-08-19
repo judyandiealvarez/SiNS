@@ -54,9 +54,33 @@ This guide covers installing the DNS server in various environments, from develo
 
 ## Production Installation
 
+### Docker Hub Images
+
+SiNS is available as pre-built Docker images on Docker Hub for easy deployment:
+
+#### Available Image Tags
+- `judyandiealvarez/sins:latest` - Latest stable version
+- `judyandiealvarez/sins:1.0.6` - Specific version (replace with desired version)
+- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
+
+#### Image Details
+- **Base**: .NET 8.0 runtime
+- **Size**: ~200MB
+- **Architecture**: linux/amd64
+- **Source**: https://github.com/judyandiealvarez/SiNS
+
+#### Pull Image
+```bash
+# Pull latest version
+docker pull judyandiealvarez/sins:latest
+
+# Pull specific version
+docker pull judyandiealvarez/sins:1.0.6
+```
+
 ### Automated Installation
 
-The recommended approach for production is using the automated deployment script.
+The recommended approach for production is using the automated deployment script with Docker Hub images.
 
 #### Step 1: Prepare the System
 
@@ -79,11 +103,26 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-#### Step 2: Clone and Deploy
+#### Step 2: Deploy Using Docker Hub (Recommended)
+
+```bash
+# Create deployment directory
+mkdir sins-production && cd sins-production
+
+# Download configuration files
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+chmod +x deploy.sh
+
+# Run deployment (requires root)
+sudo ./deploy.sh
+```
+
+#### Alternative: Clone Repository
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/judyandiealvarez/SiNS.git
 cd sins
 
 # Make deployment script executable

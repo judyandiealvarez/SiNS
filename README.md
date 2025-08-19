@@ -39,25 +39,37 @@
 - Docker and Docker Compose
 - Root access (required for port 53 and system DNS management)
 
-### Deployment
+### Quick Deployment
 
 **⚠️ Important**: This will stop your system DNS resolver and replace it with our DNS server.
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/judyandiealvarez/SiNS.git
 cd sins
 
 # Run deployment script (requires root)
 sudo ./deploy.sh
 ```
 
-The deployment script will:
-1. Stop system DNS services (systemd-resolved, bind9, etc.)
-2. Configure network DNS settings
-3. Deploy the DNS server with static IP addresses
-4. Test the deployment
-5. Show status information
+### Using Docker Hub Image (Recommended)
+
+For production deployment, you can use the pre-built Docker Hub image:
+
+```bash
+# Create deployment directory
+mkdir sins-production && cd sins-production
+
+# Download docker-compose.yml
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
+
+# Download deployment script
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+chmod +x deploy.sh
+
+# Run deployment (requires root)
+sudo ./deploy.sh
+```
 
 The deployment script will:
 1. Stop system DNS services (systemd-resolved, bind9, etc.)

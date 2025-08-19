@@ -11,10 +11,24 @@ Before you begin, ensure you have:
 - **Docker and Docker Compose** installed
 - **Internet connection** for downloading images
 
-## Step 1: Clone the Repository
+## Step 1: Prepare Deployment
+
+### Option A: Using Docker Hub (Recommended)
 
 ```bash
-git clone <repository-url>
+# Create deployment directory
+mkdir sins-production && cd sins-production
+
+# Download configuration files
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+chmod +x deploy.sh
+```
+
+### Option B: Clone Repository
+
+```bash
+git clone https://github.com/judyandiealvarez/SiNS.git
 cd sins
 ```
 
@@ -29,7 +43,7 @@ sudo ./deploy.sh
 This script will:
 - Stop system DNS services
 - Configure network DNS settings
-- Deploy SiNS with static IPs
+- Deploy SiNS with static IPs using Docker Hub image
 - Test the deployment
 - Show status information
 

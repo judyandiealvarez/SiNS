@@ -9,11 +9,52 @@ This guide covers deploying the DNS server in a production Linux environment.
 - Root access (required for port 53 and system DNS management)
 - Network access for Docker image downloads
 
+## Docker Hub Images
+
+SiNS is available as pre-built Docker images on Docker Hub:
+
+### Available Tags
+- `judyandiealvarez/sins:latest` - Latest stable version
+- `judyandiealvarez/sins:1.0.6` - Specific version (replace with desired version)
+- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
+
+### Pull Image
+```bash
+# Pull latest version
+docker pull judyandiealvarez/sins:latest
+
+# Pull specific version
+docker pull judyandiealvarez/sins:1.0.6
+```
+
+### Image Information
+- **Base**: .NET 8.0 runtime
+- **Size**: ~200MB
+- **Architecture**: linux/amd64
+- **Source**: https://github.com/judyandiealvarez/SiNS
+
 ## Quick Deployment
+
+### Option 1: Using Docker Hub Image (Recommended)
+
+1. **Create deployment directory and download files**:
+   ```bash
+   mkdir sins-production && cd sins-production
+   curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
+   curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+   chmod +x deploy.sh
+   ```
+
+2. **Run the deployment script**:
+   ```bash
+   sudo ./deploy.sh
+   ```
+
+### Option 2: Clone Repository
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/judyandiealvarez/SiNS.git
    cd sins
    ```
 
@@ -63,12 +104,17 @@ sudo chattr +i /etc/resolv.conf
 ### 3. Deploy DNS Server
 
 ```bash
-# Build and start services
-docker-compose up -d --build
+# Start services using Docker Hub image
+docker-compose up -d
 
 # Wait for services to be healthy
 docker-compose ps
 ```
+
+**Note**: The deployment uses the pre-built Docker Hub image `judyandiealvarez/sins:latest`. For specific versions, you can modify the image tag in `docker-compose.yml`:
+- `judyandiealvarez/sins:latest` - Latest stable version
+- `judyandiealvarez/sins:1.0.6` - Specific version
+- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
 
 ### 4. Test Deployment
 
