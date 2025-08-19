@@ -112,15 +112,16 @@ The SiNS project uses several GitHub Actions workflows to automate various aspec
 
 The workflows use the following environment variables:
 
-- `REGISTRY`: GitHub Container Registry (`ghcr.io`)
-- `IMAGE_NAME`: Repository name (`${{ github.repository }}`)
+- `REGISTRY`: Docker Hub (`docker.io`)
+- `IMAGE_NAME`: Repository name (`judyandiealvarez/sins`)
 
 ### Secrets
 
 The workflows use the following secrets:
 
 - `GITHUB_TOKEN`: Automatically provided by GitHub Actions
-- Repository secrets for additional authentication if needed
+- `DOCKERHUB_USERNAME`: Docker Hub username
+- `DOCKERHUB_TOKEN`: Docker Hub access token
 
 ## Docker Images
 
@@ -128,25 +129,25 @@ The workflows use the following secrets:
 
 The workflows create the following image tags:
 
-- **Version tags**: `ghcr.io/judyandiealvarez/SiNS:v1.0.0`
-- **Branch tags**: `ghcr.io/judyandiealvarez/SiNS:main`
-- **PR tags**: `ghcr.io/judyandiealvarez/SiNS:pr-123`
-- **SHA tags**: `ghcr.io/judyandiealvarez/SiNS:main-abc123`
+- **Version tags**: `judyandiealvarez/sins:v1.0.0`
+- **Branch tags**: `judyandiealvarez/sins:main`
+- **PR tags**: `judyandiealvarez/sins:pr-123`
+- **SHA tags**: `judyandiealvarez/sins:main-abc123`
 
 ### Using Docker Images
 
 ```bash
 # Pull latest release
-docker pull ghcr.io/judyandiealvarez/SiNS:v1.0.0
+docker pull judyandiealvarez/sins:v1.0.0
 
 # Pull latest main branch
-docker pull ghcr.io/judyandiealvarez/SiNS:main
+docker pull judyandiealvarez/sins:main
 
 # Run with docker-compose
 version: '3.8'
 services:
   dns-server:
-    image: ghcr.io/judyandiealvarez/SiNS:v1.0.0
+    image: judyandiealvarez/sins:v1.0.0
     ports:
       - "53:53/udp"
       - "53:53/tcp"
