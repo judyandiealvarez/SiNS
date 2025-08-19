@@ -1,0 +1,17 @@
+[Unit]
+Description=SiNS CI/CD Service
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+User=jaal
+Group=jaal
+WorkingDirectory=/home/jaal/ci
+ExecStart=/home/jaal/ci/ci-deploy.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

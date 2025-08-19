@@ -19,6 +19,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 
 ### Administration
 - [Production Deployment](production-deployment.md) - Production deployment guide
+- [GitHub Deployment Setup](github-deployment-setup.md) - Automated deployment with GitHub Actions
 - [Monitoring & Logging](monitoring.md) - Monitoring and troubleshooting
 - [Security Guide](security.md) - Security best practices
 - [Backup & Recovery](backup-recovery.md) - Data backup and disaster recovery
