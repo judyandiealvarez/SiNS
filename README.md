@@ -227,9 +227,13 @@ curl http://localhost/api/dns/health
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the GNU Lesser General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+
+### Quick Start for Contributors
 
 1. Fork the repository
 2. Create a feature branch
