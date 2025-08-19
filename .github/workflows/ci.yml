@@ -59,6 +59,7 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref != 'refs/heads/main' }}
             type=sha,prefix={{branch}}-sha-,enable=${{ github.ref != 'refs/heads/main' }}
 
       - name: Build Docker image
