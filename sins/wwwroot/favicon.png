@@ -1,0 +1,5 @@
+# This is a placeholder for favicon.png
+# In practice, you would convert the SVG to PNG format using tools like:
+# - Online converters
+# - ImageMagick: convert favicon.svg -resize 32x32 favicon.png
+# - Or use the SVG directly in modern browsers
