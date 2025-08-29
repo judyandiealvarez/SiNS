@@ -112,6 +112,16 @@ public class DnsController : ControllerBase
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
                 Console.WriteLine($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
+                
+                // Check if the existing record is inactive
+                var existingRecord = await _context.DnsRecords
+                    .FirstOrDefaultAsync(r => r.Name == request.Name && r.Type == request.Type.ToUpper());
+                
+                if (existingRecord != null && !existingRecord.IsActive)
+                {
+                    return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists but is inactive. You can either activate the existing record or use a different name." });
+                }
+                
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
             }
             Console.WriteLine($"[DEBUG] Unknown database error: {ex.Message}");

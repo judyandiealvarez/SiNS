@@ -335,40 +335,11 @@ const store = Vuex.createStore({
                 return;
             }
             
-            // Check if record already exists (including inactive ones)
-            // We need to make an API call to check for all records, not just active ones
-            try {
-                const checkResponse = await fetch('/api/dns/records/all', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
-                
-                if (checkResponse.ok) {
-                    const allRecords = await checkResponse.json();
-                    const existingRecord = allRecords.find(record => 
-                        record.name === state.newRecord.name && 
-                        record.type === state.newRecord.type
-                    );
-                    
-                    if (existingRecord) {
-                        const status = existingRecord.isActive ? 'active' : 'inactive';
-                        commit('SET_ERROR', `A DNS record with name '${state.newRecord.name}' and type '${state.newRecord.type}' already exists (${status}).`);
-                        return;
-                    }
-                }
-            } catch (error) {
-                // If the /all endpoint doesn't exist, fall back to checking active records only
-                const existingRecord = state.records.find(record => 
-                    record.name === state.newRecord.name && 
-                    record.type === state.newRecord.type
-                );
-                
-                if (existingRecord) {
-                    commit('SET_ERROR', `A DNS record with name '${state.newRecord.name}' and type '${state.newRecord.type}' already exists.`);
-                    return;
-                }
-            }
+            // Check if record already exists (only active records for frontend validation)
+            const existingRecord = state.records.find(record => 
+                record.name === state.newRecord.name && 
+                record.type === state.newRecord.type
+            );
             
             if (existingRecord) {
                 commit('SET_ERROR', `A DNS record with name '${state.newRecord.name}' and type '${state.newRecord.type}' already exists.`);
