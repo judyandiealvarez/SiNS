@@ -95,6 +95,8 @@ jobs:
         sleep 30
         
         # Check service status
+        log "Checking service status..."
+        docker compose ps
         if docker compose ps | grep -q "healthy"; then
             log_success "Services are healthy!"
         else
@@ -108,12 +110,15 @@ jobs:
         # Test DNS functionality with retries
         log "Testing DNS functionality..."
         for i in {1..3}; do
+            log "DNS test attempt $i..."
             if nslookup google.com 127.0.0.1 > /dev/null 2>&1; then
                 log_success "DNS resolution test passed"
                 break
             else
                 if [ $i -eq 3 ]; then
                     log_error "DNS resolution test failed after 3 attempts"
+                    log "DNS test output:"
+                    nslookup google.com 127.0.0.1
                     exit 1
                 else
                     log_warning "DNS resolution test failed, retrying in 5 seconds..."
@@ -125,12 +130,15 @@ jobs:
         # Test web interface with retries
         log "Testing web interface..."
         for i in {1..3}; do
+            log "Web interface test attempt $i..."
             if curl -fs http://127.0.0.1/ > /dev/null 2>&1; then
                 log_success "Web interface test passed"
                 break
             else
                 if [ $i -eq 3 ]; then
                     log_error "Web interface test failed after 3 attempts"
+                    log "Web interface test output:"
+                    curl -v http://127.0.0.1/
                     exit 1
                 else
                     log_warning "Web interface test failed, retrying in 5 seconds..."
