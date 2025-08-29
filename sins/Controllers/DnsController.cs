@@ -74,7 +74,7 @@ public class DnsController : ControllerBase
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            if (ex.InnerException?.Message?.Contains("duplicate key") == true || 
+            if (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });

@@ -38,9 +38,11 @@ public class AuthController : ControllerBase
 
         var token = await _authService.AuthenticateAsync(request.Username, request.Password);
 
-        return Ok(new { 
+        return Ok(new
+        {
             token,
-            user = new {
+            user = new
+            {
                 id = user.Id,
                 username = user.Username,
                 email = user.Email,
