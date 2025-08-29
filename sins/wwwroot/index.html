@@ -223,6 +223,11 @@
                                 </button>
                             </div>
                             
+                            <div v-if="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+                                <button type="button" class="btn-close" @click="$store.commit('SET_ERROR', null)"></button>
+                            </div>
+                            
                             <div class="card">
                                 <div class="card-body">
                                     <div class="table-responsive">
@@ -402,6 +407,9 @@
                         <button @click="closeAddRecordModal" class="btn-close"></button>
                     </div>
                     <div class="modal-body">
+                        <div v-if="error" class="alert alert-danger mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+                        </div>
                         <form id="addRecordForm">
                             <div class="mb-3">
                                 <label class="form-label">Name</label>

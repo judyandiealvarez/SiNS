@@ -329,6 +329,23 @@ const store = Vuex.createStore({
         async addRecord({ commit, state, dispatch }) {
             if (!state.token) return;
             
+            // Validate required fields
+            if (!state.newRecord.name || !state.newRecord.type || !state.newRecord.value) {
+                commit('SET_ERROR', 'Name, type, and value are required');
+                return;
+            }
+            
+            // Check if record already exists
+            const existingRecord = state.records.find(record => 
+                record.name === state.newRecord.name && 
+                record.type === state.newRecord.type
+            );
+            
+            if (existingRecord) {
+                commit('SET_ERROR', `A DNS record with name '${state.newRecord.name}' and type '${state.newRecord.type}' already exists.`);
+                return;
+            }
+            
             commit('SET_LOADING', true);
             
             try {
@@ -610,6 +627,9 @@ const app = Vue.createApp({
         },
         
         submitAddRecord() {
+            // Clear any previous errors
+            this.$store.commit('SET_ERROR', null);
+            
             // Validate form
             const form = document.getElementById('addRecordForm');
             if (form && form.checkValidity()) {
@@ -621,6 +641,7 @@ const app = Vue.createApp({
         },
         
         openAddRecordModal() {
+            this.$store.commit('SET_ERROR', null);
             this.$store.commit('SET_SHOW_ADD_RECORD_MODAL', true);
             this.$store.commit('RESET_NEW_RECORD');
         },
