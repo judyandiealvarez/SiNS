@@ -197,9 +197,11 @@ const store = Vuex.createStore({
                 
                 if (response.ok) {
                     commit('SET_TOKEN', data.token);
+                    // Handle both old and new API response formats
+                    const userRole = data.user?.role || 'Admin'; // Default to Admin for existing users
                     commit('SET_CURRENT_USER', {
                         username: state.loginForm.username,
-                        role: data.role
+                        role: userRole
                     });
                     await this.dispatch('loadDashboard');
                 } else {
