@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using sins.Data;
 using sins.Services;
+using BCrypt.Net;
 
 namespace sins.Controllers;
 
@@ -27,14 +28,25 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Username and password are required" });
         }
 
-        var token = await _authService.AuthenticateAsync(request.Username, request.Password);
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
 
-        if (token == null)
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Invalid username or password" });
         }
 
-        return Ok(new { token });
+        var token = await _authService.AuthenticateAsync(request.Username, request.Password);
+
+        return Ok(new { 
+            token,
+            user = new {
+                id = user.Id,
+                username = user.Username,
+                email = user.Email,
+                role = user.Role
+            }
+        });
     }
 
     [HttpPost("register")]
