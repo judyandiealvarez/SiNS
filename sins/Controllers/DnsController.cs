@@ -29,7 +29,6 @@ public class DnsController : ControllerBase
     public async Task<IActionResult> GetRecords()
     {
         var records = await _context.DnsRecords
-            .Where(r => r.IsActive)
             .OrderBy(r => r.Name)
             .ThenBy(r => r.Type)
             .ToListAsync();
@@ -37,17 +36,7 @@ public class DnsController : ControllerBase
         return Ok(records);
     }
 
-    [HttpGet("records/all")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetAllRecords()
-    {
-        var records = await _context.DnsRecords
-            .OrderBy(r => r.Name)
-            .ThenBy(r => r.Type)
-            .ToListAsync();
 
-        return Ok(records);
-    }
 
     [HttpGet("records/{id}")]
     public async Task<IActionResult> GetRecord(int id)
@@ -89,8 +78,7 @@ public class DnsController : ControllerBase
             Value = request.Value,
             Ttl = request.Ttl,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            IsActive = true
+            UpdatedAt = DateTime.UtcNow
         };
 
         try
@@ -111,17 +99,6 @@ public class DnsController : ControllerBase
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
                 _logger.LogWarning($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
-                
-                // Check if the existing record is inactive
-                var existingRecord = await _context.DnsRecords
-                    .FirstOrDefaultAsync(r => r.Name == request.Name && r.Type == request.Type.ToUpper());
-                
-                if (existingRecord != null && !existingRecord.IsActive)
-                {
-                    _logger.LogInformation($"[DEBUG] Found inactive record: {existingRecord.Name} ({existingRecord.Type}) - IsActive: {existingRecord.IsActive}");
-                    return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists but is inactive. You can either activate the existing record or use a different name." });
-                }
-                
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
             }
             _logger.LogError($"[DEBUG] Unknown database error: {ex.Message}");
@@ -168,9 +145,8 @@ public class DnsController : ControllerBase
             return NotFound();
         }
 
-        record.IsActive = false;
-        record.UpdatedAt = DateTime.UtcNow;
-
+        // Real delete - remove the record from database
+        _context.DnsRecords.Remove(record);
         await _context.SaveChangesAsync();
 
         return NoContent();
@@ -335,7 +311,7 @@ public class DnsController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var totalRecords = await _context.DnsRecords.CountAsync(r => r.IsActive);
+        var totalRecords = await _context.DnsRecords.CountAsync();
         var totalCacheRecords = await _context.CacheRecords.CountAsync(c => c.ExpiresAt > DateTime.UtcNow);
         var expiredCacheRecords = await _context.CacheRecords.CountAsync(c => c.ExpiresAt <= DateTime.UtcNow);
 

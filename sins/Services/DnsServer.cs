@@ -261,7 +261,7 @@ public class DnsServer : BackgroundService
         var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
 
         var record = await context.DnsRecords
-            .FirstOrDefaultAsync(r => r.Name == dnsMessage.Name && r.Type == dnsMessage.Type && r.IsActive);
+                            .FirstOrDefaultAsync(r => r.Name == dnsMessage.Name && r.Type == dnsMessage.Type);
 
         return record;
     }
