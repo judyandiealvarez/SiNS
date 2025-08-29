@@ -19,6 +19,7 @@ public class DnsController : ControllerBase
     {
         _context = context;
         _configService = configService;
+        Console.WriteLine("[DEBUG] DnsController constructor called");
     }
 
     [HttpGet("records")]
@@ -50,10 +51,21 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateRecord([FromBody] CreateDnsRecordRequest request)
     {
+        Console.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
+        
+        if (request == null)
+        {
+            Console.WriteLine("[DEBUG] Request body is null");
+            return BadRequest(new { message = "Request body is required" });
+        }
+
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Type) || string.IsNullOrEmpty(request.Value))
         {
+            Console.WriteLine($"[DEBUG] Validation failed: Name='{request.Name}', Type='{request.Type}', Value='{request.Value}'");
             return BadRequest(new { message = "Name, type, and value are required" });
         }
+
+        Console.WriteLine($"[DEBUG] Creating record: {request.Name} ({request.Type}) = {request.Value}");
 
         var record = new DnsRecord
         {
@@ -68,21 +80,31 @@ public class DnsController : ControllerBase
 
         try
         {
+            Console.WriteLine($"[DEBUG] Adding record to context");
             _context.DnsRecords.Add(record);
+            Console.WriteLine($"[DEBUG] Saving changes to database");
             await _context.SaveChangesAsync();
+            Console.WriteLine($"[DEBUG] Record created successfully with ID: {record.Id}");
             return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
+            Console.WriteLine($"[DEBUG] DbUpdateException: {ex.Message}");
+            Console.WriteLine($"[DEBUG] InnerException: {ex.InnerException?.Message}");
+            
             if (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
+                Console.WriteLine($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
             }
+            Console.WriteLine($"[DEBUG] Unknown database error: {ex.Message}");
             return StatusCode(500, new { message = "An error occurred while creating the DNS record." });
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DEBUG] General exception: {ex.Message}");
+            Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
             return StatusCode(500, new { message = "An error occurred while creating the DNS record." });
         }
     }
