@@ -56,7 +56,7 @@ public class DnsController : ControllerBase
     public async Task<IActionResult> CreateRecord([FromBody] CreateDnsRecordRequest request)
     {
         _logger.LogInformation($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
-        
+
         if (request == null)
         {
             _logger.LogWarning("[DEBUG] Request body is null");
@@ -94,7 +94,7 @@ public class DnsController : ControllerBase
         {
             _logger.LogError($"[DEBUG] DbUpdateException: {ex.Message}");
             _logger.LogError($"[DEBUG] InnerException: {ex.InnerException?.Message}");
-            
+
             if (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
