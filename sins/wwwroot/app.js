@@ -346,6 +346,9 @@ const store = Vuex.createStore({
                 return;
             }
             
+            // TEMPORARY: Log what we're about to send
+            console.log('About to send record:', state.newRecord);
+            
             commit('SET_LOADING', true);
             
             try {
