@@ -66,10 +66,20 @@ public class DnsController : ControllerBase
             IsActive = true
         };
 
-        _context.DnsRecords.Add(record);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
+        try
+        {
+            _context.DnsRecords.Add(record);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (ex.InnerException?.Message?.Contains("duplicate key") == true)
+        {
+            return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while creating the DNS record." });
+        }
     }
 
     [HttpPut("records/{id}")]
