@@ -20,6 +20,8 @@ public class DnsController : ControllerBase
         _context = context;
         _configService = configService;
         Console.WriteLine("[DEBUG] DnsController constructor called");
+        System.Console.WriteLine("[DEBUG] DnsController constructor called");
+        System.Diagnostics.Debug.WriteLine("[DEBUG] DnsController constructor called");
     }
 
     [HttpGet("records")]
@@ -51,7 +53,9 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateRecord([FromBody] CreateDnsRecordRequest request)
     {
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
         Console.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
+        System.Console.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
         
         if (request == null)
         {
