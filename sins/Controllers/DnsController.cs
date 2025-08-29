@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using sins.Data;
 using sins.Models;
 using sins.Services;
+using Microsoft.Extensions.Logging;
 
 namespace sins.Controllers;
 
@@ -14,14 +15,14 @@ public class DnsController : ControllerBase
 {
     private readonly DnsContext _context;
     private readonly IConfigurationService _configService;
+    private readonly ILogger<DnsController> _logger;
 
-    public DnsController(DnsContext context, IConfigurationService configService)
+    public DnsController(DnsContext context, IConfigurationService configService, ILogger<DnsController> logger)
     {
         _context = context;
         _configService = configService;
-        Console.WriteLine("[DEBUG] DnsController constructor called");
-        System.Console.WriteLine("[DEBUG] DnsController constructor called");
-        System.Diagnostics.Debug.WriteLine("[DEBUG] DnsController constructor called");
+        _logger = logger;
+        _logger.LogInformation("[DEBUG] DnsController constructor called");
     }
 
     [HttpGet("records")]
@@ -65,23 +66,21 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateRecord([FromBody] CreateDnsRecordRequest request)
     {
-        System.Diagnostics.Debug.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
-        Console.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
-        System.Console.WriteLine($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
+        _logger.LogInformation($"[DEBUG] CreateRecord called with: Name='{request?.Name}', Type='{request?.Type}', Value='{request?.Value}', Ttl={request?.Ttl}");
         
         if (request == null)
         {
-            Console.WriteLine("[DEBUG] Request body is null");
+            _logger.LogWarning("[DEBUG] Request body is null");
             return BadRequest(new { message = "Request body is required" });
         }
 
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Type) || string.IsNullOrEmpty(request.Value))
         {
-            Console.WriteLine($"[DEBUG] Validation failed: Name='{request.Name}', Type='{request.Type}', Value='{request.Value}'");
+            _logger.LogWarning($"[DEBUG] Validation failed: Name='{request.Name}', Type='{request.Type}', Value='{request.Value}'");
             return BadRequest(new { message = "Name, type, and value are required" });
         }
 
-        Console.WriteLine($"[DEBUG] Creating record: {request.Name} ({request.Type}) = {request.Value}");
+        _logger.LogInformation($"[DEBUG] Creating record: {request.Name} ({request.Type}) = {request.Value}");
 
         var record = new DnsRecord
         {
@@ -96,22 +95,22 @@ public class DnsController : ControllerBase
 
         try
         {
-            Console.WriteLine($"[DEBUG] Adding record to context");
+            _logger.LogInformation($"[DEBUG] Adding record to context");
             _context.DnsRecords.Add(record);
-            Console.WriteLine($"[DEBUG] Saving changes to database");
+            _logger.LogInformation($"[DEBUG] Saving changes to database");
             await _context.SaveChangesAsync();
-            Console.WriteLine($"[DEBUG] Record created successfully with ID: {record.Id}");
+            _logger.LogInformation($"[DEBUG] Record created successfully with ID: {record.Id}");
             return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            Console.WriteLine($"[DEBUG] DbUpdateException: {ex.Message}");
-            Console.WriteLine($"[DEBUG] InnerException: {ex.InnerException?.Message}");
+            _logger.LogError($"[DEBUG] DbUpdateException: {ex.Message}");
+            _logger.LogError($"[DEBUG] InnerException: {ex.InnerException?.Message}");
             
             if (ex.InnerException?.Message?.Contains("duplicate key") == true ||
                 ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
-                Console.WriteLine($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
+                _logger.LogWarning($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
                 
                 // Check if the existing record is inactive
                 var existingRecord = await _context.DnsRecords
@@ -119,18 +118,19 @@ public class DnsController : ControllerBase
                 
                 if (existingRecord != null && !existingRecord.IsActive)
                 {
+                    _logger.LogInformation($"[DEBUG] Found inactive record: {existingRecord.Name} ({existingRecord.Type}) - IsActive: {existingRecord.IsActive}");
                     return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists but is inactive. You can either activate the existing record or use a different name." });
                 }
                 
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
             }
-            Console.WriteLine($"[DEBUG] Unknown database error: {ex.Message}");
+            _logger.LogError($"[DEBUG] Unknown database error: {ex.Message}");
             return StatusCode(500, new { message = "An error occurred while creating the DNS record." });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] General exception: {ex.Message}");
-            Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
+            _logger.LogError($"[DEBUG] General exception: {ex.Message}");
+            _logger.LogError($"[DEBUG] Stack trace: {ex.StackTrace}");
             return StatusCode(500, new { message = "An error occurred while creating the DNS record." });
         }
     }
