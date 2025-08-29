@@ -101,23 +101,43 @@ jobs:
             log_warning "Some services may not be healthy yet"
         fi
         
-        # Test DNS functionality
-        log "Testing DNS functionality..."
-        if nslookup google.com 127.0.0.1 > /dev/null 2>&1; then
-            log_success "DNS resolution test passed"
-        else
-            log_error "DNS resolution test failed"
-            exit 1
-        fi
+        # Wait additional time for web interface to be ready
+        log "Waiting for web interface to be ready..."
+        sleep 10
         
-        # Test web interface
+        # Test DNS functionality with retries
+        log "Testing DNS functionality..."
+        for i in {1..3}; do
+            if nslookup google.com 127.0.0.1 > /dev/null 2>&1; then
+                log_success "DNS resolution test passed"
+                break
+            else
+                if [ $i -eq 3 ]; then
+                    log_error "DNS resolution test failed after 3 attempts"
+                    exit 1
+                else
+                    log_warning "DNS resolution test failed, retrying in 5 seconds..."
+                    sleep 5
+                fi
+            fi
+        done
+        
+        # Test web interface with retries
         log "Testing web interface..."
-        if curl -fs http://127.0.0.1/ > /dev/null 2>&1; then
-            log_success "Web interface test passed"
-        else
-            log_error "Web interface test failed"
-            exit 1
-        fi
+        for i in {1..3}; do
+            if curl -fs http://127.0.0.1/ > /dev/null 2>&1; then
+                log_success "Web interface test passed"
+                break
+            else
+                if [ $i -eq 3 ]; then
+                    log_error "Web interface test failed after 3 attempts"
+                    exit 1
+                else
+                    log_warning "Web interface test failed, retrying in 5 seconds..."
+                    sleep 5
+                fi
+            fi
+        done
         
         # Show final status
         log "=== Deployment Status ==="
