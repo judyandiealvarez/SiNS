@@ -36,6 +36,18 @@ public class DnsController : ControllerBase
         return Ok(records);
     }
 
+    [HttpGet("records/all")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllRecords()
+    {
+        var records = await _context.DnsRecords
+            .OrderBy(r => r.Name)
+            .ThenBy(r => r.Type)
+            .ToListAsync();
+
+        return Ok(records);
+    }
+
     [HttpGet("records/{id}")]
     public async Task<IActionResult> GetRecord(int id)
     {
