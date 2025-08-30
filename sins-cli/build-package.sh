@@ -18,6 +18,13 @@ mkdir -p ${PACKAGE_DIR}
 echo "Building .NET application..."
 dotnet publish sins-cli.csproj -c Release -o ${PACKAGE_DIR}/usr/local/bin/sns --self-contained false
 
+# Fix the directory structure - move files from nested directory
+if [ -d "${PACKAGE_DIR}/usr/local/bin/sns/sns" ]; then
+    echo "Fixing directory structure..."
+    mv "${PACKAGE_DIR}/usr/local/bin/sns/sns"/* "${PACKAGE_DIR}/usr/local/bin/sns/"
+    rmdir "${PACKAGE_DIR}/usr/local/bin/sns/sns"
+fi
+
 # Create package structure
 mkdir -p ${PACKAGE_DIR}/DEBIAN
 mkdir -p ${PACKAGE_DIR}/usr/local/bin
@@ -32,7 +39,8 @@ chmod +x ${PACKAGE_DIR}/DEBIAN/postinst
 chmod +x ${PACKAGE_DIR}/DEBIAN/prerm
 
 # Update version in control file
-sed -i "s/Version: .*/Version: ${VERSION}/" ${PACKAGE_DIR}/DEBIAN/control
+sed -i.bak "s/Version: .*/Version: ${VERSION}/" "${PACKAGE_DIR}/DEBIAN/control"
+rm -f "${PACKAGE_DIR}/DEBIAN/control.bak"
 
 # Create the .deb package
 echo "Creating Debian package..."

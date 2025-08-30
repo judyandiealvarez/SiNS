@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+# Make the CLI executable
+chmod +x /usr/local/bin/sns
+
+echo "SiNS CLI tool installed successfully!"
+echo "Usage: sns --help"

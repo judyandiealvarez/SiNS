@@ -44,7 +44,7 @@ class Program
         var outputService = serviceProvider.GetRequiredService<OutputService>();
         
         // Configure API client
-        rootCommand.SetHandler(async (string server, string? token) =>
+        rootCommand.SetHandler((string server, string? token) =>
         {
             apiClient.SetBaseUrl(server);
             

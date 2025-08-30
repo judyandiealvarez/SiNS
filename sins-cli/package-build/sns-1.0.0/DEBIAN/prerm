@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+
+# Cleanup - no symlinks to remove for sns command
