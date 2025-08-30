@@ -22,10 +22,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+    - name: Check .NET
+      run: |
+        dotnet --version
+        echo "Using existing .NET installation on docker-build runner"
         
     - name: Setup build environment
       run: |
@@ -91,63 +91,11 @@ jobs:
     environment: public
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Download package artifact
+      uses: actions/download-artifact@v4
       with:
-        dotnet-version: '9.0.x'
-        
-    - name: Setup build environment
-      run: |
-        sudo apt update
-        sudo apt install -y dpkg-dev build-essential fakeroot
-        
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-        else
-          # Extract version from git tag (remove 'cli-v' prefix)
-          VERSION=${GITHUB_REF#refs/tags/cli-v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-        fi
-        
-    - name: Build CLI application
-      run: |
-        cd sins-cli
-        echo "Current directory: $(pwd)"
-        echo "Directory contents:"
-        ls -la
-        echo "Building .NET application..."
-        dotnet restore
-        dotnet build -c Release
-        echo "Build completed successfully"
-        
-    - name: Test CLI application
-      run: |
-        cd sins-cli
-        dotnet run -- --help
-        
-    - name: Build Debian package
-      run: |
-        cd sins-cli
-        echo "Building Debian package..."
-        echo "Version: ${{ steps.version.outputs.version }}"
-        chmod +x build-package.sh
-        ./build-package.sh ${{ steps.version.outputs.version }}
-        echo "Package build completed"
-        
-    - name: Verify package
-      run: |
-        cd sins-cli
-        echo "Package contents:"
-        dpkg -c sns_${{ steps.version.outputs.version }}_all.deb
-        
-        echo "Package information:"
-        dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
+        name: sns-package
+        path: .
         
     - name: Setup SSH
       run: |
@@ -171,16 +119,20 @@ jobs:
         
     - name: Deploy to APT Repository
       run: |
-        cd sins-cli
+        # Get the package filename
+        PACKAGE_FILE=$(ls *.deb)
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_all.deb/\1/')
+        
+        echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
         
         # Copy package to repository server
-        scp -o StrictHostKeyChecking=no sns_${{ steps.version.outputs.version }}_all.deb jaal@10.11.2.10:/tmp/
+        scp -o StrictHostKeyChecking=no $PACKAGE_FILE jaal@10.11.2.10:/tmp/
         
         # Add package to repository
-        ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << 'EOF'
+        ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << EOF
           echo "Adding package to APT repository..."
-          sudo /usr/local/bin/add-package.sh /tmp/sns_${{ steps.version.outputs.version }}_all.deb
-          rm /tmp/sns_${{ steps.version.outputs.version }}_all.deb
+          sudo /usr/local/bin/add-package.sh /tmp/$PACKAGE_FILE
+          rm /tmp/$PACKAGE_FILE
           echo "Package added successfully!"
         EOF
         
@@ -193,17 +145,13 @@ jobs:
         echo "Checking package availability..."
         curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
         
-    - name: Upload package artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: sns-package
-        path: sins-cli/sns_${{ steps.version.outputs.version }}_all.deb
-        retention-days: 30
-        
     - name: Notify deployment
       run: |
+        PACKAGE_FILE=$(ls *.deb)
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_all.deb/\1/')
+        
         echo "✅ SiNS CLI package deployed successfully!"
-        echo "📦 Package: sns_${{ steps.version.outputs.version }}_all.deb"
+        echo "📦 Package: $PACKAGE_FILE"
         echo "🌐 Repository: http://tools.apt.home.net"
         echo "📋 Install with: sudo apt update && sudo apt install sns"
         echo "🔗 Usage: sns --help"
