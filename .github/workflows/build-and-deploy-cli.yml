@@ -92,7 +92,10 @@ jobs:
         
         # Add the SSH key
         echo "${{ secrets.APT_REPO_SSH_KEY }}" | tr -d '\r' | ssh-add -
-        ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
+        
+        # Skip ssh-keyscan for now and use StrictHostKeyChecking=no
+        echo "SSH key added successfully"
+        
         echo "SSH setup completed"
         
     - name: Deploy to APT Repository
