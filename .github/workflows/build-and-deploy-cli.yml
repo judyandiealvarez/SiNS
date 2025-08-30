@@ -13,17 +13,17 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: public
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check .NET
-      run: |
-        # Just check if dotnet is available
-        dotnet --version || echo "dotnet command not found in PATH"
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
         
     - name: Setup build environment
       run: |
