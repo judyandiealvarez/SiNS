@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sins", "sins\sins.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sins.Tests", "sins.Tests\sins.Tests.csproj", "{8F4E2C5B-F60D-4EEF-9181-3FCCC1F0AD90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sins-cli", "sins-cli\sins-cli.csproj", "{9F5E2C6C-F70E-4FF0-9292-4FDDD2F1BE01}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{8F4E2C5B-F60D-4EEF-9181-3FCCC1F0AD90}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8F4E2C5B-F60D-4EEF-9181-3FCCC1F0AD90}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8F4E2C5B-F60D-4EEF-9181-3FCCC1F0AD90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F5E2C6C-F70E-4FF0-9292-4FDDD2F1BE01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F5E2C6C-F70E-4FF0-9292-4FDDD2F1BE01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F5E2C6C-F70E-4FF0-9292-4FDDD2F1BE01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F5E2C6C-F70E-4FF0-9292-4FDDD2F1BE01}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,90 @@
+stages:
+  - build
+  - test
+  - package
+  - deploy
+
+variables:
+  PACKAGE_NAME: "sns"
+  REPO_SERVER: "10.11.2.10"
+  REPO_USER: "jaal"
+
+build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:7.0
+  before_script:
+    - apt update && apt install -y dpkg-dev build-essential fakeroot
+  script:
+    - cd sins-cli
+    - dotnet restore
+    - dotnet build -c Release
+  artifacts:
+    paths:
+      - sins-cli/bin/
+      - sins-cli/obj/
+    expire_in: 1 hour
+
+test:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:7.0
+  script:
+    - cd sins-cli
+    - dotnet run -- --help
+  dependencies:
+    - build
+
+package:
+  stage: package
+  image: ubuntu:24.04
+  before_script:
+    - apt update && apt install -y dpkg-dev build-essential fakeroot dotnet-sdk-7.0
+  script:
+    - cd sins-cli
+    - chmod +x build-package.sh
+    - ./build-package.sh $CI_COMMIT_TAG_NAME
+    - echo "Package created: sns_${CI_COMMIT_TAG_NAME}_all.deb"
+      artifacts:
+      paths:
+        - sins-cli/sns_*.deb
+    expire_in: 1 week
+  only:
+    - tags
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H $REPO_SERVER >> ~/.ssh/known_hosts
+  script:
+    - cd sins-cli
+    - |
+      for deb in sins-cli_*.deb; do
+        echo "Deploying $deb to APT repository..."
+        
+        # Copy package to repository server
+        scp -o StrictHostKeyChecking=no "$deb" ${REPO_USER}@${REPO_SERVER}:/tmp/
+        
+        # Add package to repository
+        ssh -o StrictHostKeyChecking=no ${REPO_USER}@${REPO_SERVER} << EOF
+          sudo /usr/local/bin/add-package.sh "/tmp/$deb"
+          rm "/tmp/$deb"
+          echo "Package $deb added successfully!"
+        EOF
+        
+        # Verify deployment
+        sleep 5
+        echo "Verifying package availability..."
+        curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
+      done
+  dependencies:
+    - package
+  only:
+    - tags
+  environment:
+    name: production
+    url: http://tools.apt.home.net

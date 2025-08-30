@@ -1,0 +1,19 @@
+Package: sns
+Version: 1.0.0
+Architecture: all
+Maintainer: SiNS Team <admin@home.net>
+Depends: dotnet-runtime-7.0
+Description: SiNS DNS Server CLI Tool (sns)
+ A command-line interface for managing the SiNS DNS Server via its REST API.
+ .
+ Features:
+  * DNS Record Management (CRUD operations)
+  * Cache Management (view and clear cache)
+  * System Management (health checks, statistics, configuration)
+  * User Management (authentication and administration)
+  * Cross-platform support (Windows, macOS, Linux)
+  * Modern CLI with colored output and formatted tables
+ .
+ The CLI tool provides comprehensive functionality for all aspects
+ of DNS server management, from basic health checks to complex
+ configuration management.

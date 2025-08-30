@@ -1,0 +1,136 @@
+pipeline {
+    agent any
+    
+    environment {
+        PACKAGE_NAME = 'sns'
+        REPO_SERVER = '10.11.2.10'
+        REPO_USER = 'jaal'
+        VERSION = "${env.BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Setup Environment') {
+            steps {
+                sh '''
+                    sudo apt update
+                    sudo apt install -y dpkg-dev build-essential fakeroot dotnet-sdk-7.0
+                '''
+            }
+        }
+        
+        stage('Build CLI') {
+            steps {
+                dir('sins-cli') {
+                    sh '''
+                        dotnet restore
+                        dotnet build -c Release
+                    '''
+                }
+            }
+        }
+        
+        stage('Test CLI') {
+            steps {
+                dir('sins-cli') {
+                    sh 'dotnet run -- --help'
+                }
+            }
+        }
+        
+        stage('Build Package') {
+            steps {
+                dir('sins-cli') {
+                    sh '''
+                        chmod +x build-package.sh
+                        ./build-package.sh ${VERSION}
+                    '''
+                }
+            }
+        }
+        
+        stage('Verify Package') {
+            steps {
+                dir('sins-cli') {
+                    sh '''
+                        echo "Package contents:"
+                        dpkg -c sns_${VERSION}_all.deb
+                        
+                        echo "Package information:"
+                        dpkg -I sns_${VERSION}_all.deb
+                    '''
+                }
+            }
+        }
+        
+        stage('Deploy to APT Repository') {
+            steps {
+                script {
+                    dir('sins-cli') {
+                        // Copy package to repository server
+                        sh '''
+                            scp -o StrictHostKeyChecking=no sns_${VERSION}_all.deb ${REPO_USER}@${REPO_SERVER}:/tmp/
+                        '''
+                        
+                        // Add package to repository
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ${REPO_USER}@${REPO_SERVER} << 'EOF'
+                                echo "Adding package to APT repository..."
+                                sudo /usr/local/bin/add-package.sh /tmp/sns_${VERSION}_all.deb
+                                rm /tmp/sns_${VERSION}_all.deb
+                                echo "Package added successfully!"
+                            EOF
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // Wait for repository to update
+                    sleep(10)
+                    
+                    // Check if package is available
+                    sh '''
+                        echo "Checking package availability..."
+                        curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
+                    '''
+                }
+            }
+        }
+        
+        stage('Archive Package') {
+            steps {
+                dir('sins-cli') {
+                    archiveArtifacts artifacts: 'sns_*.deb', fingerprint: true
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "✅ SiNS CLI package deployed successfully!"
+            echo "📦 Package: sns_${VERSION}_all.deb"
+            echo "🌐 Repository: http://tools.apt.home.net"
+            echo "📋 Install with: sudo apt update && sudo apt install sns"
+            echo "🔗 Usage: sns --help"
+        }
+        
+        failure {
+            echo "❌ Deployment failed!"
+            echo "Check the logs for more information."
+        }
+        
+        always {
+            cleanWs()
+        }
+    }
+}

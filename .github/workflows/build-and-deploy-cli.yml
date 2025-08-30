@@ -1,0 +1,112 @@
+name: Build and Deploy SiNS CLI (sns)
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+        
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y dpkg-dev build-essential fakeroot
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          # Extract version from git tag (remove 'cli-v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/cli-v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Build CLI application
+      run: |
+        cd sins-cli
+        dotnet restore
+        dotnet build -c Release
+        
+    - name: Test CLI application
+      run: |
+        cd sins-cli
+        dotnet run -- --help
+        
+    - name: Build Debian package
+      run: |
+        cd sins-cli
+        ./build-package.sh ${{ steps.version.outputs.version }}
+        
+    - name: Verify package
+      run: |
+        cd sins-cli
+        echo "Package contents:"
+        dpkg -c sns_${{ steps.version.outputs.version }}_all.deb
+        
+        echo "Package information:"
+        dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
+        
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.APT_REPO_SSH_KEY }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
+        
+    - name: Deploy to APT Repository
+      run: |
+        cd sins-cli
+        
+        # Copy package to repository server
+        scp -o StrictHostKeyChecking=no sns_${{ steps.version.outputs.version }}_all.deb jaal@10.11.2.10:/tmp/
+        
+        # Add package to repository
+        ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << 'EOF'
+          echo "Adding package to APT repository..."
+          sudo /usr/local/bin/add-package.sh /tmp/sns_${{ steps.version.outputs.version }}_all.deb
+          rm /tmp/sns_${{ steps.version.outputs.version }}_all.deb
+          echo "Package added successfully!"
+        EOF
+        
+    - name: Verify deployment
+      run: |
+        # Wait a moment for repository to update
+        sleep 10
+        
+        # Check if package is available in repository
+        echo "Checking package availability..."
+        curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
+        
+    - name: Upload package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sns-package
+        path: sins-cli/sns_${{ steps.version.outputs.version }}_all.deb
+        retention-days: 30
+        
+    - name: Notify deployment
+      run: |
+        echo "✅ SiNS CLI package deployed successfully!"
+        echo "📦 Package: sns_${{ steps.version.outputs.version }}_all.deb"
+        echo "🌐 Repository: http://tools.apt.home.net"
+        echo "📋 Install with: sudo apt update && sudo apt install sns"
+        echo "🔗 Usage: sns --help"
