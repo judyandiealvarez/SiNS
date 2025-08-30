@@ -74,29 +74,18 @@ jobs:
         echo "Package information:"
         dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
         
-    - name: Setup SSH (Optional)
+    - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
-          echo "⚠️  APT_REPO_SSH_KEY secret is not set - skipping deployment"
-          echo "Package built successfully: sns_${{ steps.version.outputs.version }}_all.deb"
-          echo "To deploy, add the APT_REPO_SSH_KEY secret to your repository"
-          exit 0
-        fi
-        echo "${{ secrets.APT_REPO_SSH_KEY }}" > ~/.ssh/id_ed25519
-        chmod 600 ~/.ssh/id_ed25519
+        chmod 700 ~/.ssh
+        eval $(ssh-agent -s)
+        echo "${{ secrets.APT_REPO_SSH_KEY }}" | tr -d '\r' | ssh-add -
         ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
         echo "SSH setup completed"
         
-    - name: Deploy to APT Repository (Optional)
+    - name: Deploy to APT Repository
       run: |
         cd sins-cli
-        
-        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
-          echo "⚠️  Skipping deployment - APT_REPO_SSH_KEY secret not set"
-          echo "Package built successfully: sns_${{ steps.version.outputs.version }}_all.deb"
-          exit 0
-        fi
         
         # Copy package to repository server
         scp -o StrictHostKeyChecking=no sns_${{ steps.version.outputs.version }}_all.deb jaal@10.11.2.10:/tmp/
@@ -109,13 +98,8 @@ jobs:
           echo "Package added successfully!"
         EOF
         
-    - name: Verify deployment (Optional)
+    - name: Verify deployment
       run: |
-        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
-          echo "⚠️  Skipping verification - APT_REPO_SSH_KEY secret not set"
-          exit 0
-        fi
-        
         # Wait a moment for repository to update
         sleep 10
         
