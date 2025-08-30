@@ -79,6 +79,17 @@ jobs:
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         eval $(ssh-agent -s)
+        
+        # Debug: Check if secret is available
+        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
+          echo "❌ APT_REPO_SSH_KEY secret is empty or not set!"
+          exit 1
+        fi
+        
+        echo "✅ APT_REPO_SSH_KEY secret is available"
+        echo "Key length: ${#APT_REPO_SSH_KEY} characters"
+        
+        # Add the SSH key
         echo "${{ secrets.APT_REPO_SSH_KEY }}" | tr -d '\r' | ssh-add -
         ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
         echo "SSH setup completed"
