@@ -110,11 +110,8 @@ jobs:
         fi
         
         echo "✅ APT_REPO_SSH_KEY secret is available"
-        echo "Key length: ${#APT_REPO_SSH_KEY} characters"
-        echo "First 50 chars: ${APT_REPO_SSH_KEY:0:50}"
-        echo "Last 50 chars: ${APT_REPO_SSH_KEY: -50}"
         
-        # Add the SSH key
+        # Add the SSH key directly from the secret
         echo "${{ secrets.APT_REPO_SSH_KEY }}" | tr -d '\r' | ssh-add -
         ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
         echo "SSH setup completed"
