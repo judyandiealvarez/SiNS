@@ -12,8 +12,82 @@ on:
         default: '1.0.0'
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: docker-build
+    outputs:
+      package-path: ${{ steps.package.outputs.path }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y dpkg-dev build-essential fakeroot
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          # Extract version from git tag (remove 'cli-v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/cli-v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Build CLI application
+      run: |
+        cd sins-cli
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        echo "Building .NET application..."
+        dotnet restore
+        dotnet build -c Release
+        echo "Build completed successfully"
+        
+    - name: Test CLI application
+      run: |
+        cd sins-cli
+        dotnet run -- --help
+        
+    - name: Build Debian package
+      run: |
+        cd sins-cli
+        echo "Building Debian package..."
+        echo "Version: ${{ steps.version.outputs.version }}"
+        chmod +x build-package.sh
+        ./build-package.sh ${{ steps.version.outputs.version }}
+        echo "Package build completed"
+        
+    - name: Verify package
+      run: |
+        cd sins-cli
+        echo "Package contents:"
+        dpkg -c sns_${{ steps.version.outputs.version }}_all.deb
+        
+        echo "Package information:"
+        dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
+        
+    - name: Upload package artifact
+      id: package
+      uses: actions/upload-artifact@v4
+      with:
+        name: sns-package
+        path: sins-cli/sns_${{ steps.version.outputs.version }}_all.deb
+        retention-days: 30
+        
+  deploy:
+    needs: build
+    runs-on: dns-prod
     environment: public
     
     steps:
