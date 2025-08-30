@@ -75,52 +75,15 @@ jobs:
         echo "Package information:"
         dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
         
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        eval $(ssh-agent -s)
-        
-        # Debug: Check if secret is available
-        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
-          echo "❌ APT_REPO_SSH_KEY secret is empty or not set!"
-          exit 1
-        fi
-        
-        echo "✅ APT_REPO_SSH_KEY secret is available"
-        echo "Key length: ${#APT_REPO_SSH_KEY} characters"
-        
-        # Add the SSH key
-        echo "${{ secrets.APT_REPO_SSH_KEY }}" | tr -d '\r' | ssh-add -
-        
-        # Skip ssh-keyscan for now and use StrictHostKeyChecking=no
-        echo "SSH key added successfully"
-        
-        echo "SSH setup completed"
-        
-    - name: Deploy to APT Repository
+    - name: Build Package Only (Manual Deployment Required)
       run: |
         cd sins-cli
-        
-        # Copy package to repository server
-        scp -o StrictHostKeyChecking=no sns_${{ steps.version.outputs.version }}_all.deb jaal@10.11.2.10:/tmp/
-        
-        # Add package to repository
-        ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << 'EOF'
-          echo "Adding package to APT repository..."
-          sudo /usr/local/bin/add-package.sh /tmp/sns_${{ steps.version.outputs.version }}_all.deb
-          rm /tmp/sns_${{ steps.version.outputs.version }}_all.deb
-          echo "Package added successfully!"
-        EOF
-        
-    - name: Verify deployment
-      run: |
-        # Wait a moment for repository to update
-        sleep 10
-        
-        # Check if package is available in repository
-        echo "Checking package availability..."
-        curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
+        echo "📦 Package built successfully: sns_${{ steps.version.outputs.version }}_all.deb"
+        echo "🔧 Manual deployment required - server 10.11.2.10 is not accessible from GitHub Actions"
+        echo "📋 To deploy manually:"
+        echo "   1. Download the package artifact from this workflow"
+        echo "   2. Upload to your server: scp sns_${{ steps.version.outputs.version }}_all.deb jaal@10.11.2.10:/tmp/"
+        echo "   3. Add to repository: ssh jaal@10.11.2.10 'sudo /usr/local/bin/add-package.sh /tmp/sns_${{ steps.version.outputs.version }}_all.deb'"
         
     - name: Upload package artifact
       uses: actions/upload-artifact@v4
@@ -129,10 +92,10 @@ jobs:
         path: sins-cli/sns_${{ steps.version.outputs.version }}_all.deb
         retention-days: 30
         
-    - name: Notify deployment
+    - name: Notify build completion
       run: |
-        echo "✅ SiNS CLI package deployed successfully!"
+        echo "✅ SiNS CLI package built successfully!"
         echo "📦 Package: sns_${{ steps.version.outputs.version }}_all.deb"
-        echo "🌐 Repository: http://tools.apt.home.net"
-        echo "📋 Install with: sudo apt update && sudo apt install sns"
+        echo "📥 Download from workflow artifacts"
+        echo "🔧 Manual deployment required - see workflow logs for instructions"
         echo "🔗 Usage: sns --help"
