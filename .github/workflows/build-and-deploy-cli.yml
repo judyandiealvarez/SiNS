@@ -43,8 +43,13 @@ jobs:
     - name: Build CLI application
       run: |
         cd sins-cli
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        echo "Building .NET application..."
         dotnet restore
         dotnet build -c Release
+        echo "Build completed successfully"
         
     - name: Test CLI application
       run: |
@@ -54,7 +59,11 @@ jobs:
     - name: Build Debian package
       run: |
         cd sins-cli
+        echo "Building Debian package..."
+        echo "Version: ${{ steps.version.outputs.version }}"
+        chmod +x build-package.sh
         ./build-package.sh ${{ steps.version.outputs.version }}
+        echo "Package build completed"
         
     - name: Verify package
       run: |
@@ -68,9 +77,14 @@ jobs:
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
+        if [ -z "${{ secrets.APT_REPO_SSH_KEY }}" ]; then
+          echo "❌ APT_REPO_SSH_KEY secret is not set!"
+          exit 1
+        fi
         echo "${{ secrets.APT_REPO_SSH_KEY }}" > ~/.ssh/id_ed25519
         chmod 600 ~/.ssh/id_ed25519
         ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
+        echo "SSH setup completed"
         
     - name: Deploy to APT Repository
       run: |

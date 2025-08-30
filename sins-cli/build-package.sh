@@ -16,7 +16,10 @@ mkdir -p ${PACKAGE_DIR}
 
 # Build the .NET application
 echo "Building .NET application..."
+echo "Current directory: $(pwd)"
+echo "Project file exists: $(test -f sins-cli.csproj && echo 'Yes' || echo 'No')"
 dotnet publish sins-cli.csproj -c Release -o ${PACKAGE_DIR}/usr/local/bin/sns --self-contained false
+echo "Publish completed"
 
 # Fix the directory structure - move files from nested directory
 if [ -d "${PACKAGE_DIR}/usr/local/bin/sns/sns" ]; then
@@ -25,9 +28,8 @@ if [ -d "${PACKAGE_DIR}/usr/local/bin/sns/sns" ]; then
     rmdir "${PACKAGE_DIR}/usr/local/bin/sns/sns"
 fi
 
-# Create package structure
+# Create package structure (DEBIAN directory)
 mkdir -p ${PACKAGE_DIR}/DEBIAN
-mkdir -p ${PACKAGE_DIR}/usr/local/bin
 
 # Copy Debian control files
 cp debian/control ${PACKAGE_DIR}/DEBIAN/
