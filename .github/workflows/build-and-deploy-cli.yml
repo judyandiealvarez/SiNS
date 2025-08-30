@@ -20,10 +20,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check .NET installation
+    - name: Install .NET
       run: |
-        dotnet --version
-        echo "Using existing .NET installation on self-hosted runner"
+        # Check if .NET is already installed
+        if command -v dotnet &> /dev/null; then
+          echo "✅ .NET is already installed:"
+          dotnet --version
+        else
+          echo "📦 Installing .NET 9.0..."
+          # Download and install .NET
+          wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          rm packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y dotnet-sdk-9.0
+          echo "✅ .NET 9.0 installed successfully"
+        fi
         
     - name: Setup build environment
       run: |
