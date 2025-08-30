@@ -14,6 +14,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: public
     
     steps:
     - name: Checkout code
