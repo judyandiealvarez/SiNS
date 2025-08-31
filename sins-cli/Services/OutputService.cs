@@ -81,7 +81,7 @@ public class OutputService
         {
             var ips = string.Join(", ", record.ResolvedIPs);
             if (ips.Length > 28) ips = ips[..25] + "...";
-            
+
             System.Console.WriteLine($"{record.Id,-4} {record.Domain,-25} {record.Type,-8} {ips,-30} {record.ExpiresAt:yyyy-MM-dd HH:mm:ss,-20} {record.UpstreamServer,-15}");
         }
         System.Console.WriteLine();

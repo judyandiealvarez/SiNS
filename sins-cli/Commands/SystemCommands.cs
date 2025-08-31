@@ -143,7 +143,7 @@ public class SystemCommands
 
                 await _apiClient.UpdateConfigAsync(request);
                 _outputService.WriteSuccess("Configuration updated successfully");
-                
+
                 // Show updated config
                 var config = await _apiClient.GetConfigAsync();
                 _outputService.DisplayServerConfig(config);

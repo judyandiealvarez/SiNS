@@ -36,7 +36,7 @@ public class DnsCommands
     {
         var typeOption = new Option<string?>("--type", "Filter by record type (A, AAAA, CNAME, etc.)");
         var nameOption = new Option<string?>("--name", "Filter by domain name");
-        
+
         var command = new Command("list", "List all DNS records")
         {
             typeOption,
@@ -48,13 +48,13 @@ public class DnsCommands
             try
             {
                 var records = await _apiClient.GetDnsRecordsAsync();
-                
+
                 // Apply filters if provided
                 if (!string.IsNullOrEmpty(type))
                 {
                     records = records.Where(r => r.Type.Equals(type, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
-                
+
                 if (!string.IsNullOrEmpty(name))
                 {
                     records = records.Where(r => r.Name.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();

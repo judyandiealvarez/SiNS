@@ -33,7 +33,7 @@ public class CacheCommands
     {
         var domainOption = new Option<string?>("--domain", "Filter by domain name");
         var expiredOption = new Option<bool?>("--expired", "Show expired records only");
-        
+
         var command = new Command("list", "List cache records")
         {
             domainOption,
@@ -45,13 +45,13 @@ public class CacheCommands
             try
             {
                 var records = await _apiClient.GetCacheRecordsAsync();
-                
+
                 // Apply filters if provided
                 if (!string.IsNullOrEmpty(domain))
                 {
                     records = records.Where(r => r.Domain.Contains(domain, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
-                
+
                 if (expired.HasValue)
                 {
                     var now = DateTime.UtcNow;

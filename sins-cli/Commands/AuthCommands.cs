@@ -46,11 +46,11 @@ public class AuthCommands
             {
                 var response = await _apiClient.LoginAsync(username, password);
                 _apiClient.SetAuthToken(response.Token);
-                
+
                 _outputService.WriteSuccess($"Login successful for user: {response.User.Username}");
                 _outputService.WriteInfo($"Role: {response.User.Role}");
                 _outputService.WriteInfo($"Token: {response.Token}");
-                
+
                 // Save token to environment or config file for future use
                 Environment.SetEnvironmentVariable("SINS_TOKEN", response.Token);
                 _outputService.WriteInfo("Token saved to environment variable SINS_TOKEN");
