@@ -144,7 +144,7 @@ jobs:
         
         # Check if package is available in repository
         echo "Checking package availability..."
-        curl -s http://tools.apt.home.net/dists/custom/main/binary-amd64/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
+        curl -s http://tools.apt.home.net/Packages | grep -A 5 "Package: sns" || echo "Package not found in repository"
         
     - name: Notify deployment
       run: |
