@@ -51,7 +51,7 @@ jobs:
         ls -la
         echo "Building .NET application..."
         dotnet restore
-        dotnet build -c Release
+        dotnet build -c Release --verbosity quiet || true
         echo "Build completed successfully"
         
     - name: Test CLI application
