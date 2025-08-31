@@ -74,17 +74,17 @@ jobs:
       run: |
         cd sins-cli
         echo "Package contents:"
-        dpkg -c sns_${{ steps.version.outputs.version }}_all.deb
+        dpkg -c sns_${{ steps.version.outputs.version }}_amd64.deb
         
         echo "Package information:"
-        dpkg -I sns_${{ steps.version.outputs.version }}_all.deb
+        dpkg -I sns_${{ steps.version.outputs.version }}_amd64.deb
         
     - name: Upload package artifact
       id: package
       uses: actions/upload-artifact@v4
       with:
         name: sns-package
-        path: sins-cli/sns_${{ steps.version.outputs.version }}_all.deb
+        path: sins-cli/sns_${{ steps.version.outputs.version }}_amd64.deb
         retention-days: 30
         
   deploy:
@@ -122,7 +122,7 @@ jobs:
       run: |
         # Get the package filename (get the most recent one)
         PACKAGE_FILE=$(ls -t *.deb | head -1)
-        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_all.deb/\1/')
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_amd64.deb/\1/')
         
         echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
         
@@ -149,7 +149,7 @@ jobs:
     - name: Notify deployment
       run: |
         PACKAGE_FILE=$(ls *.deb)
-        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_all.deb/\1/')
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_amd64.deb/\1/')
         
         echo "✅ SiNS CLI package deployed successfully!"
         echo "📦 Package: $PACKAGE_FILE"
