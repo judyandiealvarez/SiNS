@@ -1,6 +1,6 @@
 Package: sns
 Version: 1.0.0
-Architecture: all
+Architecture: amd64
 Maintainer: SiNS Team <admin@home.net>
 Depends: dotnet-runtime-9.0 | dotnet-runtime-8.0 | dotnet-runtime-7.0
 Description: SiNS DNS Server CLI Tool (sns)

@@ -4,7 +4,7 @@ set -e
 # Configuration
 PACKAGE_NAME="sns"
 VERSION=${1:-"1.0.0"}
-ARCH="all"
+ARCH="amd64"
 BUILD_DIR="package-build"
 PACKAGE_DIR="${BUILD_DIR}/${PACKAGE_NAME}-${VERSION}"
 
