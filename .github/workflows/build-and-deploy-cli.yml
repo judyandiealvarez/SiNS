@@ -49,9 +49,11 @@ jobs:
         echo "Current directory: $(pwd)"
         echo "Directory contents:"
         ls -la
+        echo "Fixing code formatting..."
+        dotnet format --verbosity quiet || true
         echo "Building .NET application..."
         dotnet restore
-        dotnet build -c Release --verbosity quiet || true
+        dotnet build -c Release --verbosity quiet
         echo "Build completed successfully"
         
     - name: Test CLI application
