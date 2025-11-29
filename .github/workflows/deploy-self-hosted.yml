@@ -1,12 +1,15 @@
 name: Deploy to Production Server (Self-Hosted)
 
+# Disabled
+# on:
+#   workflow_run:
+#     workflows: ["CI"]
+#     types:
+#       - completed
+#     branches: [ main ]
+#   workflow_dispatch: # Allow manual trigger
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
-    branches: [ main ]
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch: {} # Disabled - only allow manual trigger, but workflow won't run
 
 jobs:
   deploy:

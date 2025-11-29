@@ -90,22 +90,38 @@ jobs:
           
           // Try to trigger workflow run via API
           try {
-            // Get workflow ID
-            const response = await github.rest.actions.listWorkflowsForRepo({
+            // Get workflow ID - use getWorkflowByFileName instead
+            const workflowFile = 'build-and-release.yml';
+            const workflows = await github.rest.actions.listWorkflowsForRepo({
               owner: owner,
-              repo: repo
+              repo: repo,
+              per_page: 100
             });
             
+            // Debug: log response structure
+            console.log('API Response:', JSON.stringify(workflows, null, 2));
+            
             // Check if response has expected structure
-            if (!response || !response.data || !Array.isArray(response.data.workflows)) {
-              console.log(`⚠️ Unexpected API response format`);
-              console.log(`Tag ${tag} was created. If you have GH_PAT secret configured, the workflow should trigger automatically.`);
+            if (!workflows || !workflows.data) {
+              throw new Error('Invalid API response structure');
+            }
+            
+            // Handle both possible response structures
+            const workflowsList = workflows.data.workflows || workflows.data;
+            
+            if (!Array.isArray(workflowsList)) {
+              console.log('⚠️ Workflows is not an array:', typeof workflowsList);
+              console.log('⚠️ Tag ${tag} was created. If you have GH_PAT secret configured, the workflow should trigger automatically.');
               return;
             }
             
-            const workflow = response.data.workflows.find(w => w.path === '.github/workflows/build-and-release.yml');
+            const workflow = workflowsList.find(w => 
+              w.path === `.github/workflows/${workflowFile}` || 
+              w.name === workflowFile ||
+              w.path === workflowFile
+            );
             
-            if (workflow) {
+            if (workflow && workflow.id) {
               await github.rest.actions.createWorkflowDispatch({
                 owner: owner,
                 repo: repo,
