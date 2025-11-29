@@ -32,23 +32,16 @@ RUN echo "deb [trusted=yes] https://judyalvarez@apt.fury.io/judyalvarez /" | tee
 # Update package list, install dotnet-runtime-8.0 (to satisfy sins dependency), then install sins package
 # Note: Retry logic to handle Gemfury indexing delays
 # The version will be passed as a build argument
-# The postinst script tries to use systemctl which doesn't exist in Docker, so we use dpkg --force-all
 RUN apt-get update && \
     apt-get install -y --no-install-recommends dotnet-runtime-8.0 && \
-    (apt-get download sins=${APP_VERSION} 2>/dev/null || \
+    (apt-get install -y --no-install-recommends sins=${APP_VERSION} || \
      (echo "Package sins=${APP_VERSION} not found, waiting for indexing..." && \
       sleep 15 && \
       apt-get update && \
-      (apt-get download sins=${APP_VERSION} 2>/dev/null || \
+      (apt-get install -y --no-install-recommends sins=${APP_VERSION} || \
        (echo "Still not found, trying latest version..." && \
         apt-get update && \
-        apt-get download sins 2>/dev/null)))) && \
-    # Install the .deb package with --force-all to skip postinst systemctl calls
-    dpkg --force-all -i sins*.deb 2>&1 || true && \
-    # Manually complete package configuration (skip systemctl parts)
-    dpkg --configure --force-all sins 2>&1 || true && \
-    apt-get install -f -y --no-install-recommends && \
-    rm -f sins*.deb && \
+        apt-get install -y --no-install-recommends sins)))) && \
     rm -rf /var/lib/apt/lists/*
 
 # Create necessary directories
