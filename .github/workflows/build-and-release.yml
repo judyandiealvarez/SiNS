@@ -141,13 +141,10 @@ jobs:
           }
     
     - name: Verify tag creation
-      if: steps.version.outputs.tag != '' && secrets.GH_PAT == ''
+      if: steps.version.outputs.tag != ''
       run: |
         TAG=${{ steps.version.outputs.tag }}
         echo "✅ Tag $TAG was created and pushed"
-        echo "⚠️ GH_PAT secret is not configured"
-        echo "⚠️ Without PAT, tag pushes from workflows don't trigger new workflow runs"
-        echo "⚠️ Add a PAT token with 'workflow' scope as GH_PAT secret for automatic triggering"
       
   build-docker:
     runs-on: docker-build
