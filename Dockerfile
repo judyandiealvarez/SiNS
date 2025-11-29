@@ -19,8 +19,9 @@ RUN apt-get update && \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Gemfury APT repository
-RUN echo "deb https://apt.fury.io/judyalvarez /" | tee /etc/apt/sources.list.d/fury.list
+# Add Gemfury APT repository (with username in URL for public packages)
+# Using [trusted=yes] because Gemfury may not provide a Release file
+RUN echo "deb [trusted=yes] https://judyalvarez@apt.fury.io/judyalvarez /" | tee /etc/apt/sources.list.d/fury.list
 
 # Update package list and install sins package
 # Note: Retry logic to handle Gemfury indexing delays

@@ -343,10 +343,10 @@ jobs:
         echo "✅ Gemfury credentials are available"
         PACKAGE_FILE=$(ls -t *.deb | head -1)
         VERSION=$(echo $PACKAGE_FILE | sed 's/sins_\(.*\)_amd64.deb/\1/')
-        echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
+        echo "Deploying package: $PACKAGE_FILE (version: $VERSION) as public"
         curl -F package=@$PACKAGE_FILE \
-          https://$GEMFURY_TOKEN@push.fury.io/$GEMFURY_USER/
-        echo "✅ Package uploaded to Gemfury successfully!"
+          "https://$GEMFURY_TOKEN@push.fury.io/$GEMFURY_USER/?public=1"
+        echo "✅ Package uploaded to Gemfury successfully as public!"
 
   deploy-cli:
     needs: build-cli
