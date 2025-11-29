@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+# Reload systemd after removal
+systemctl daemon-reload 2>/dev/null || true
+
+# Clean up capabilities
+if [ -f /opt/sins/sins ]; then
+    setcap -r /opt/sins/sins 2>/dev/null || true
+fi
+

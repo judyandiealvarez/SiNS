@@ -8,6 +8,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load configuration from /etc/sins/appsettings.json if it exists (for deb package installation)
+if (File.Exists("/etc/sins/appsettings.json"))
+{
+    builder.Configuration.AddJsonFile("/etc/sins/appsettings.json", optional: true, reloadOnChange: true);
+}
+
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

@@ -35,27 +35,34 @@
 - **Network**: 172.20.0.0/16 subnet with static addressing
 - **Health Checks**: Automatic service monitoring and restart
 
-## Production Deployment
+## Installation
 
-### Prerequisites
-- Linux system (tested on Ubuntu/Debian)
-- Docker and Docker Compose
-- Root access (required for port 53 and system DNS management)
+### Option 1: Debian Package (Recommended for Linux)
 
-### Quick Deployment
+Install the SiNS server as a native Debian package:
 
-**⚠️ Important**: This will stop your system DNS resolver and replace it with our DNS server.
-
+**From Gemfury APT Repository:**
 ```bash
-# Clone the repository
-git clone https://github.com/judyandiealvarez/SiNS.git
-cd sins
-
-# Run deployment script (requires root)
-sudo ./deploy.sh
+curl -s https://get.fury.io/judyalvarez | bash
+sudo apt update
+sudo apt install sins-server
 ```
 
-### Using Docker Hub Image (Recommended)
+**From GitHub Releases:**
+```bash
+# Download latest release
+wget https://github.com/judyandiealvarez/SiNS/releases/latest/download/sins-server_*.deb
+
+# Install
+sudo dpkg -i sins-server_*.deb
+sudo apt-get install -f  # Install dependencies if needed
+
+# Start service
+sudo systemctl start sins-server
+sudo systemctl enable sins-server
+```
+
+### Option 2: Docker (Recommended for Containerized Deployments)
 
 For production deployment, you can use the pre-built Docker Hub image:
 
@@ -231,6 +238,29 @@ curl http://localhost/api/dns/health
 ## License
 
 This project is licensed under the GNU Lesser General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+## Releases
+
+SiNS components are released as:
+- **Debian Packages**: Available via Gemfury APT repository and GitHub Releases
+- **Docker Images**: Available on Docker Hub
+- **GitHub Releases**: With deb packages attached
+
+See [RELEASES.md](RELEASES.md) for detailed release information and instructions.
+
+### Quick Install
+
+**Server:**
+```bash
+curl -s https://get.fury.io/judyalvarez | bash
+sudo apt update && sudo apt install sins-server
+```
+
+**CLI Tool:**
+```bash
+echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
+sudo apt update && sudo apt install sns
+```
 
 ## Contributing
 

@@ -766,6 +766,253 @@ curl http://localhost/api/dns/stats
 
 ---
 
+## CLI Tool Building and Deployment
+
+### Overview
+
+The SiNS CLI tool (`sns`) is a command-line interface for managing the DNS server via its REST API. It's built in C# using .NET 9.0 and deployed as a Debian package to a custom APT repository.
+
+### CLI Architecture
+
+#### Technology Stack
+- **Language**: C# (.NET 9.0)
+- **Framework**: System.CommandLine for CLI parsing
+- **HTTP Client**: HttpClient for API communication
+- **Serialization**: System.Text.Json for JSON handling
+- **Dependency Injection**: Microsoft.Extensions.DependencyInjection
+
+#### Project Structure
+```
+sins-cli/
+├── Commands/           # CLI command implementations
+│   ├── AuthCommands.cs
+│   ├── DnsCommands.cs
+│   ├── CacheCommands.cs
+│   └── SystemCommands.cs
+├── Services/           # Business logic services
+│   ├── ApiClient.cs    # HTTP client for API calls
+│   └── OutputService.cs # Output formatting
+├── Models/             # Data models
+├── debian/             # Debian packaging files
+│   ├── control         # Package metadata
+│   ├── postinst        # Post-installation script
+│   └── prerm           # Pre-removal script
+├── build-package.sh    # Package building script
+└── sins-cli.csproj     # Project file
+```
+
+### Building the CLI
+
+#### Prerequisites
+```bash
+# Install .NET 9.0 SDK
+# Install Debian packaging tools
+sudo apt install dpkg-dev build-essential fakeroot
+```
+
+#### Local Build Process
+```bash
+cd sins-cli
+
+# Fix code formatting (important for CI/CD)
+dotnet format --verbosity quiet
+
+# Build the application
+dotnet restore
+dotnet build -c Release
+
+# Test the CLI
+dotnet run -- --help
+```
+
+#### Package Building
+```bash
+# Build Debian package
+chmod +x build-package.sh
+./build-package.sh 1.0.0
+
+# Verify package
+dpkg -c sns_1.0.0_amd64.deb
+dpkg -I sns_1.0.0_amd64.deb
+```
+
+### CI/CD Pipeline
+
+#### GitHub Actions Workflow
+The CLI uses a GitHub Actions workflow (`.github/workflows/build-and-deploy-cli.yml`) that:
+
+1. **Triggers**: On push to tags matching `cli-v*`
+2. **Build Job** (runs on `docker-build` runner):
+   - Sets up .NET 9.0 environment
+   - Installs Debian packaging tools
+   - Fixes code formatting with `dotnet format`
+   - Builds the .NET application
+   - Tests the CLI functionality
+   - Creates Debian package
+   - Uploads package as artifact
+
+3. **Deploy Job** (runs on `docker-build` runner):
+   - Downloads package artifact
+   - Sets up SSH with APT repository server
+   - Deploys package to APT repository
+   - Verifies deployment
+   - Sends notification
+
+#### Key Configuration Details
+
+**Architecture**: Package uses `amd64` architecture (not `all`) to match repository structure
+**Repository**: Deployed to `http://tools.apt.home.net`
+**Package Name**: `sns` (not `sins-cli`)
+**Dependencies**: Requires .NET runtime 9.0, 8.0, or 7.0
+
+### Deployment Process
+
+#### APT Repository Structure
+```
+http://tools.apt.home.net/
+├── Packages              # Main package index
+├── Packages.gz           # Compressed package index
+├── Release               # Repository metadata
+├── amd64/                # amd64 architecture packages
+│   └── sns_1.0.0_amd64.deb
+├── i386/                 # i386 architecture packages
+└── source/               # Source packages
+```
+
+#### Deployment Steps
+1. **Package Creation**: Build Debian package with correct architecture
+2. **SSH Transfer**: Copy package to repository server (`10.11.2.10`)
+3. **Repository Update**: Run `add-package.sh` script on server
+4. **Index Generation**: Update Packages index and metadata
+5. **Verification**: Check package availability in repository
+
+#### SSH Configuration
+- **Server**: `10.11.2.10` (APT repository server)
+- **User**: `jaal`
+- **Key**: Stored in GitHub Environment secret `APT_REPO_SSH_KEY`
+- **Script**: `/usr/local/bin/add-package.sh` on repository server
+
+### Usage
+
+#### Installation
+```bash
+# Add repository (if not already added)
+echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
+
+# Update package list
+sudo apt update
+
+# Install CLI
+sudo apt install sns
+```
+
+#### Basic Usage
+```bash
+# Show help
+sns --help
+
+# Set server and token
+sns --server http://dns-server:8080 --token your-jwt-token
+
+# Authentication
+sns auth login username password
+
+# DNS management
+sns dns list
+sns dns add example.com A 192.168.1.100
+sns dns delete example.com A
+
+# Cache management
+sns cache list
+sns cache clear
+
+# System management
+sns system health
+sns system stats
+```
+
+### Troubleshooting
+
+#### Common Build Issues
+
+**Code Formatting Errors**
+```bash
+# Fix formatting before build
+dotnet format --verbosity quiet
+```
+
+**Architecture Mismatch**
+- Ensure package uses `amd64` architecture (not `all`)
+- Check `debian/control` and `build-package.sh`
+
+**Missing Dependencies**
+```bash
+# Install required tools
+sudo apt install dpkg-dev build-essential fakeroot
+```
+
+#### Deployment Issues
+
+**SSH Authentication**
+- Verify `APT_REPO_SSH_KEY` secret is set in GitHub Environment
+- Check SSH key permissions and format
+- Ensure repository server is accessible from runner
+
+**Package Not Found After Deployment**
+```bash
+# Check repository structure
+curl -s http://tools.apt.home.net/Packages | grep sns
+
+# Verify package location
+curl -s http://tools.apt.home.net/amd64/ | grep sns
+```
+
+**Repository URL Mismatch**
+- Package deploys to `http://custom-repo.home.net:8080`
+- Should be accessible via `http://tools.apt.home.net`
+- Check HAProxy configuration if URL doesn't work
+
+#### Version Management
+
+**Creating New Release**
+```bash
+# Create and push tag
+git tag cli-v1.0.0
+git push origin cli-v1.0.0
+
+# This triggers the CI/CD pipeline automatically
+```
+
+**Version Extraction**
+- Version is extracted from git tag (removes `cli-v` prefix)
+- Example: tag `cli-v1.0.0` becomes version `1.0.0`
+
+### Security Considerations
+
+#### Package Security
+- Packages are signed and verified
+- Repository uses HTTPS
+- SSH keys are stored securely in GitHub secrets
+
+#### API Security
+- CLI uses JWT authentication
+- Tokens can be provided via command line or environment variable
+- API calls use HTTPS (when configured)
+
+### Performance Optimization
+
+#### Build Performance
+- Uses self-hosted runners for faster builds
+- Parallel job execution
+- Cached dependencies
+
+#### Runtime Performance
+- Minimal dependencies
+- Efficient JSON serialization
+- Connection pooling for HTTP requests
+
+---
+
 ## Future Roadmap
 
 ### Planned Enhancements

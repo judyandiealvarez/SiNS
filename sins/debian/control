@@ -1,0 +1,21 @@
+Package: sins-server
+Version: 1.0.0
+Architecture: amd64
+Maintainer: SiNS Team <admin@home.net>
+Depends: dotnet-runtime-8.0, postgresql-client, libcap2-bin
+Description: SiNS DNS Server
+ A hybrid authoritative and recursive DNS server with web-based management interface.
+ .
+ Features:
+  * Authoritative and recursive DNS server (UDP/TCP on port 53)
+  * Web-based management interface (Vue.js)
+  * PostgreSQL database for DNS records and configuration
+  * JWT-based authentication with role-based access
+  * Intelligent DNS caching with configurable TTL
+  * Real-time configuration management
+  * RESTful API for DNS operations
+ .
+ The server provides a complete DNS solution suitable for both
+ authoritative and recursive DNS queries, with modern web-based
+ management capabilities.
+
