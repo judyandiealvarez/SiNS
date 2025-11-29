@@ -75,70 +75,8 @@ jobs:
         else
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
+          echo "Tag $TAG created and pushed. Workflow will trigger automatically from tag push."
         fi
-    
-    - name: Trigger workflow for tag
-      if: steps.version.outputs.tag != ''
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.GH_PAT }}
-        script: |
-          const tag = '${{ steps.version.outputs.tag }}';
-          const owner = context.repo.owner;
-          const repo = context.repo.repo;
-          
-          // Wait for tag to be available
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          try {
-            // Get workflows - correct method is listRepoWorkflows
-            const response = await github.rest.actions.listRepoWorkflows({
-              owner: owner,
-              repo: repo,
-              per_page: 100
-            });
-            
-            // Response structure: response.data.workflows is an array
-            if (!response || !response.data || !Array.isArray(response.data.workflows)) {
-              throw new Error('Invalid API response structure');
-            }
-            
-            // Find the workflow file
-            const workflowFile = 'build-and-release.yml';
-            const workflow = response.data.workflows.find(w => 
-              w.path === `.github/workflows/${workflowFile}`
-            );
-            
-            if (!workflow) {
-              console.log(`⚠️ Workflow ${workflowFile} not found`);
-              console.log(`Tag ${tag} was created. Workflow should trigger automatically from tag push.`);
-              return;
-            }
-            
-            if (!workflow.id) {
-              throw new Error('Workflow found but missing ID');
-            }
-            
-            // Trigger workflow dispatch with tag as ref
-            await github.rest.actions.createWorkflowDispatch({
-              owner: owner,
-              repo: repo,
-              workflow_id: workflow.id,
-              ref: tag
-            });
-            
-            console.log(`✅ Successfully triggered workflow for tag ${tag}`);
-            
-          } catch (error) {
-            console.log(`⚠️ Could not trigger workflow via API`);
-            console.log(`Tag ${tag} was created and pushed.`);
-            console.log(`Workflow should trigger automatically from tag push since GH_PAT was used.`);
-            console.log(`Error: ${error.message}`);
-            if (error.response) {
-              console.log(`HTTP Status: ${error.response.status}`);
-            }
-            // Don't fail the step - tag was created successfully
-          }
     
     - name: Verify tag creation
       if: steps.version.outputs.tag != ''
