@@ -1,3 +1,45 @@
+// Helper function to handle API calls with automatic 401 handling
+let storeInstance = null;
+
+function setStoreInstance(store) {
+    storeInstance = store;
+}
+
+async function apiFetch(url, options = {}) {
+    const token = localStorage.getItem('token');
+    
+    // Add Authorization header if token exists
+    const headers = {
+        ...options.headers,
+        ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+    
+    const response = await fetch(url, {
+        ...options,
+        headers
+    });
+    
+    // Handle 401 Unauthorized - token expired or invalid
+    if (response.status === 401) {
+        // Clear auth state in store if available
+        if (storeInstance) {
+            storeInstance.commit('CLEAR_AUTH');
+        } else {
+            // Fallback: clear localStorage directly
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
+        }
+        
+        // Redirect to login page
+        window.location.href = '/';
+        
+        // Return a rejected promise to stop further execution
+        throw new Error('Session expired. Please login again.');
+    }
+    
+    return response;
+}
+
 // Vuex Store
 const store = Vuex.createStore({
     state() {
@@ -223,11 +265,7 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/dns/stats', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
+                const response = await apiFetch('/api/dns/stats');
                 
                 if (response.ok) {
                     const stats = await response.json();
@@ -254,11 +292,7 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/dns/records', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
+                const response = await apiFetch('/api/dns/records');
                 
                 if (response.ok) {
                     const records = await response.json();
@@ -273,11 +307,7 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/dns/cache/details', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
+                const response = await apiFetch('/api/dns/cache/details');
                 
                 if (response.ok) {
                     const records = await response.json();
@@ -292,11 +322,7 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/auth/users', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
+                const response = await apiFetch('/api/auth/users');
                 
                 if (response.ok) {
                     const users = await response.json();
@@ -311,11 +337,7 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/dns/config', {
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
-                });
+                const response = await apiFetch('/api/dns/config');
                 
                 if (response.ok) {
                     const settings = await response.json();
@@ -352,11 +374,10 @@ const store = Vuex.createStore({
             commit('SET_LOADING', true);
             
             try {
-                const response = await fetch('/api/dns/records', {
+                const response = await apiFetch('/api/dns/records', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(state.newRecord)
                 });
@@ -382,11 +403,8 @@ const store = Vuex.createStore({
             if (!confirm('Are you sure you want to delete this record?')) return;
             
             try {
-                const response = await fetch(`/api/dns/records/${recordId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
+                const response = await apiFetch(`/api/dns/records/${recordId}`, {
+                    method: 'DELETE'
                 });
                 
                 if (response.ok) {
@@ -406,11 +424,10 @@ const store = Vuex.createStore({
             commit('SET_LOADING', true);
             
             try {
-                const response = await fetch(`/api/dns/records/${state.editingRecord.id}`, {
+                const response = await apiFetch(`/api/dns/records/${state.editingRecord.id}`, {
                     method: 'PUT',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         name: state.editingRecord.name,
@@ -439,11 +456,8 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await fetch('/api/dns/cache/expired', {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
+                const response = await apiFetch('/api/dns/cache/expired', {
+                    method: 'DELETE'
                 });
                 
                 if (response.ok) {
@@ -461,11 +475,8 @@ const store = Vuex.createStore({
             if (!confirm('Are you sure you want to clear all cache?')) return;
             
             try {
-                const response = await fetch('/api/dns/cache', {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
+                const response = await apiFetch('/api/dns/cache', {
+                    method: 'DELETE'
                 });
                 
                 if (response.ok) {
@@ -483,11 +494,10 @@ const store = Vuex.createStore({
             commit('SET_LOADING', true);
             
             try {
-                const response = await fetch('/api/dns/config', {
+                const response = await apiFetch('/api/dns/config', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(state.settings)
                 });
@@ -513,11 +523,10 @@ const store = Vuex.createStore({
             commit('SET_LOADING', true);
             
             try {
-                const response = await fetch('/api/auth/register', {
+                const response = await apiFetch('/api/auth/register', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(state.newUser)
                 });
@@ -543,11 +552,8 @@ const store = Vuex.createStore({
             if (!confirm('Are you sure you want to delete this user?')) return;
             
             try {
-                const response = await fetch(`/api/auth/users/${userId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${state.token}`
-                    }
+                const response = await apiFetch(`/api/auth/users/${userId}`, {
+                    method: 'DELETE'
                 });
                 
                 if (response.ok) {
@@ -689,6 +695,9 @@ const app = Vue.createApp({
 
 // Use Vuex
 app.use(store);
+
+// Set store instance for apiFetch to use
+setStoreInstance(store);
 
 // Mount the app
 app.mount('#app');
