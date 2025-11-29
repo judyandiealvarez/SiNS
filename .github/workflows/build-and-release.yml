@@ -246,8 +246,8 @@ jobs:
         
     - name: Setup build environment
       run: |
-        sudo apt update
-        sudo apt install -y dpkg-dev build-essential fakeroot libcap2-bin
+        sudo apt update || sudo apt update || true
+        sudo apt install -y dpkg-dev build-essential fakeroot libcap2-bin || sudo apt install -y dpkg-dev build-essential fakeroot libcap2-bin
         
     - name: Extract version
       id: version
@@ -318,8 +318,8 @@ jobs:
         
     - name: Setup build environment
       run: |
-        sudo apt update
-        sudo apt install -y dpkg-dev build-essential fakeroot
+        sudo apt update || sudo apt update || true
+        sudo apt install -y dpkg-dev build-essential fakeroot || sudo apt install -y dpkg-dev build-essential fakeroot
         
     - name: Extract version
       id: version
