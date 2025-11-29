@@ -12,7 +12,7 @@ SiNS has three main components that can be released:
 
 ## Release Process
 
-### Unified Release (Recommended)
+### Release
 
 Both SiNS Server and CLI are released together in a single GitHub release with both deb packages attached.
 
@@ -20,13 +20,13 @@ Both SiNS Server and CLI are released together in a single GitHub release with b
 
 **Option A: Using Git Tags (Recommended)**
 ```bash
-# Create and push a tag (use 'v' prefix for unified releases)
+# Create and push a tag
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
 **Option B: Manual Workflow Dispatch**
-1. Go to GitHub → Actions → "Build and Release Debian Packages"
+1. Go to GitHub → Actions → "Build and Release"
 2. Click "Run workflow"
 3. Enter version (e.g., `1.0.0` or `v1.0.0`)
 4. Click "Run workflow"
@@ -115,10 +115,7 @@ Use semantic versioning: `MAJOR.MINOR.PATCH`
 
 ### Tag Formats
 
-- **Unified Release**: `v1.0.0` (includes both server and CLI deb packages)
-- **Server Only**: `server-v1.0.0` (legacy, use unified release instead)
-- **CLI Only**: `cli-v1.0.0` (legacy, use unified release instead)
-- **Docker**: `v1.0.0` (same as unified release)
+- **Release**: `v1.0.0` (includes both server and CLI deb packages, and Docker image)
 
 ## Release Checklist
 
@@ -149,10 +146,11 @@ Before creating a release:
 
 ## Release Artifacts
 
-### Unified Release Includes
+### Release Includes
 
 - `sins-server_1.0.0_amd64.deb` - Server Debian package
 - `sns_1.0.0_amd64.deb` - CLI Debian package
+- Docker image on Docker Hub
 - Release notes with changelog
 - Installation instructions for both packages
 - Links to documentation

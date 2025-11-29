@@ -241,7 +241,7 @@ This project is licensed under the GNU Lesser General Public License v3.0 - see 
 
 ## Releases
 
-SiNS is released as a unified package including both server and CLI:
+SiNS is released including both server and CLI:
 - **Debian Packages**: Both `sins-server` and `sns` (CLI) in a single GitHub release
 - **Docker Images**: Available on Docker Hub
 - **GitHub Releases**: With both deb packages attached
