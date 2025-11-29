@@ -45,21 +45,21 @@ Install the SiNS server as a native Debian package:
 ```bash
 curl -s https://get.fury.io/judyalvarez | bash
 sudo apt update
-sudo apt install sins-server
+sudo apt install sins
 ```
 
 **From GitHub Releases:**
 ```bash
 # Download latest release
-wget https://github.com/judyandiealvarez/SiNS/releases/latest/download/sins-server_*.deb
+wget https://github.com/judyandiealvarez/SiNS/releases/latest/download/sins_*.deb
 
 # Install
-sudo dpkg -i sins-server_*.deb
+sudo dpkg -i sins_*.deb
 sudo apt-get install -f  # Install dependencies if needed
 
 # Start service
-sudo systemctl start sins-server
-sudo systemctl enable sins-server
+sudo systemctl start sins
+sudo systemctl enable sins
 ```
 
 ### Option 2: Docker (Recommended for Containerized Deployments)
@@ -254,7 +254,7 @@ See [RELEASES.md](RELEASES.md) for detailed release information and instructions
 **Server:**
 ```bash
 curl -s https://get.fury.io/judyalvarez | bash
-sudo apt update && sudo apt install sins-server
+sudo apt update && sudo apt install sins
 ```
 
 **CLI Tool:**

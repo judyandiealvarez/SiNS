@@ -7,7 +7,7 @@ This guide explains how to create releases for SiNS components, including buildi
 SiNS has three main components that can be released:
 
 1. **SiNS Server** - The DNS server application
-2. **SiNS CLI (sns)** - Command-line interface tool
+2. **SiNS CLI** - Command-line interface tool
 3. **Docker Image** - Pre-built container image
 
 ## Release Process
@@ -149,8 +149,8 @@ Before creating a release:
 
 ### Release Includes
 
-- `sins-server_1.0.0_amd64.deb` - Server Debian package
-- `sns_1.0.0_amd64.deb` - CLI Debian package
+- `sins_1.0.0_amd64.deb` - Server Debian package
+- `sins-cli_1.0.0_amd64.deb` - CLI Debian package
 - Docker image on Docker Hub
 - Release notes with changelog
 - Installation instructions for both packages
@@ -175,7 +175,6 @@ Before creating a release:
 ### Package Not Available
 
 - **Gemfury**: Wait a few minutes for indexing
-- **APT Repository**: Check SSH connection and permissions
 - **GitHub Release**: Check workflow completed successfully
 
 ### Installation Issues
@@ -200,7 +199,7 @@ If you need to build packages locally:
 ```bash
 cd sins
 ./build-package.sh 1.0.0
-# Creates: sins-server_1.0.0_amd64.deb
+# Creates: sins_1.0.0_amd64.deb
 ```
 
 ### CLI Package
@@ -208,14 +207,19 @@ cd sins
 ```bash
 cd sins-cli
 ./build-package.sh 1.0.0
-# Creates: sns_1.0.0_amd64.deb
+# Creates: sins-cli_1.0.0_amd64.deb
 ```
 
 ### Upload to Gemfury (Manual)
 
 ```bash
-curl -F package=@sins-server_1.0.0_amd64.deb \
-  https://YOUR_TOKEN@push.fury.io/judyalvarez/
+# Upload server package
+curl -F package=@sins_1.0.0_amd64.deb \
+  "https://YOUR_TOKEN@push.fury.io/judyalvarez/?public=1"
+
+# Upload CLI package
+curl -F package=@sins-cli_1.0.0_amd64.deb \
+  "https://YOUR_TOKEN@push.fury.io/judyalvarez/?public=1"
 ```
 
 ## Best Practices

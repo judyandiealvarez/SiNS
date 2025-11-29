@@ -41,13 +41,13 @@ To enable automated deployment via GitHub Actions, you need to add the following
 If you want to upload packages manually:
 
 ```bash
-# Upload a package
-curl -F package=@sins-server_1.0.0_amd64.deb \
-  https://28tdVK-e22ubAHyDPttWkw9Hw4GcZaGzQ@push.fury.io/judyalvarez/
+# Upload server package
+curl -F package=@sins_1.0.0_amd64.deb \
+  "https://28tdVK-e22ubAHyDPttWkw9Hw4GcZaGzQ@push.fury.io/judyalvarez/?public=1"
 
 # Upload CLI package
-curl -F package=@sns_1.0.0_amd64.deb \
-  https://28tdVK-e22ubAHyDPttWkw9Hw4GcZaGzQ@push.fury.io/judyalvarez/
+curl -F package=@sins-cli_1.0.0_amd64.deb \
+  "https://28tdVK-e22ubAHyDPttWkw9Hw4GcZaGzQ@push.fury.io/judyalvarez/?public=1"
 ```
 
 ## Installing Packages from Gemfury
@@ -58,7 +58,7 @@ curl -F package=@sns_1.0.0_amd64.deb \
 # Add repository and install
 curl -s https://get.fury.io/judyalvarez | bash
 sudo apt update
-sudo apt install sins-server sns
+sudo apt install sins sins-cli
 ```
 
 ### Option 2: Manual Repository Setup
@@ -71,8 +71,8 @@ echo "deb https://judyalvarez@apt.fury.io/judyalvarez /" | sudo tee /etc/apt/sou
 sudo apt update
 
 # Install packages
-sudo apt install sins-server
-sudo apt install sns
+sudo apt install sins
+sudo apt install sins-cli
 ```
 
 ### Option 3: Using Token in Repository URL
@@ -84,14 +84,14 @@ If you need to use the token for authentication:
 echo "deb https://28tdVK-e22ubAHyDPttWkw9Hw4GcZaGzQ@apt.fury.io/judyalvarez /" | sudo tee /etc/apt/sources.list.d/fury.list
 
 sudo apt update
-sudo apt install sins-server sns
+sudo apt install sins sins-cli
 ```
 
 ## Verifying Package Availability
 
 ```bash
 # Check if packages are available
-curl -s https://apt.fury.io/judyalvarez/Packages | grep -E "Package: (sins-server|sns)"
+curl -s https://apt.fury.io/judyalvarez/Packages | grep -E "Package: (sins|sins-cli)"
 
 # List all packages in repository
 curl -s https://apt.fury.io/judyalvarez/Packages | grep "^Package:"
@@ -106,16 +106,10 @@ The GitHub Actions workflows automatically:
 
 ### Triggering Deployment
 
-**For Server:**
+**For Release:**
 ```bash
-git tag server-v1.0.0
-git push origin server-v1.0.0
-```
-
-**For CLI:**
-```bash
-git tag cli-v1.0.0
-git push origin cli-v1.0.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Troubleshooting
@@ -142,7 +136,8 @@ sudo apt update
 curl -s https://apt.fury.io/judyalvarez/Packages | head -20
 
 # Verify package exists
-apt-cache search sins-server
+apt-cache search sins
+apt-cache search sins-cli
 ```
 
 ## Repository Management
