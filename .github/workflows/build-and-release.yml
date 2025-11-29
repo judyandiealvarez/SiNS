@@ -249,33 +249,24 @@ jobs:
         name: sins-cli-package
         path: .
         
-    - name: Deploy to APT Repository
+    - name: Deploy to Gemfury
       env:
-        APT_REPO_SSH_KEY: ${{ secrets.APT_REPO_SSH_KEY }}
+        GEMFURY_TOKEN: ${{ secrets.GEMFURY_TOKEN }}
+        GEMFURY_USER: ${{ secrets.GEMFURY_USER }}
       run: |
-        if [ -z "$APT_REPO_SSH_KEY" ]; then
-          echo "❌ APT_REPO_SSH_KEY secret is not set!"
-          echo "Please add this secret to your GitHub repository"
+        if [ -z "$GEMFURY_TOKEN" ] || [ -z "$GEMFURY_USER" ]; then
+          echo "❌ GEMFURY_TOKEN or GEMFURY_USER secret is not set!"
+          echo "Please add these secrets to your GitHub repository"
           exit 1
         fi
         
-        echo "✅ APT_REPO_SSH_KEY secret is available"
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        eval $(ssh-agent -s)
-        echo "$APT_REPO_SSH_KEY" | tr -d '\r' | ssh-add -
-        ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
-        
+        echo "✅ Gemfury credentials are available"
         PACKAGE_FILE=$(ls -t *.deb | head -1)
         VERSION=$(echo $PACKAGE_FILE | sed 's/sins-cli_\(.*\)_amd64.deb/\1/')
-        echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
-        
-        scp -o StrictHostKeyChecking=no $PACKAGE_FILE jaal@10.11.2.10:/tmp/
-        ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << EOF
-          sudo /usr/local/bin/add-package.sh /tmp/$PACKAGE_FILE
-          rm /tmp/$PACKAGE_FILE
-          echo "Package added successfully!"
-        EOF
+        echo "Deploying CLI package: $PACKAGE_FILE (version: $VERSION) as public"
+        curl -F package=@$PACKAGE_FILE \
+          "https://$GEMFURY_TOKEN@push.fury.io/$GEMFURY_USER/?public=1"
+        echo "✅ CLI package uploaded to Gemfury successfully as public!"
 
   release:
     needs: [build-docker, build-server, build-cli, deploy-server, deploy-cli]
