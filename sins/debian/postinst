@@ -26,11 +26,13 @@ fi
 # Set capabilities for binding to port 53
 setcap 'cap_net_bind_service=+ep' /opt/sins/sins || true
 
-# Enable and start systemd service
-if [ -f /etc/systemd/system/sins.service ]; then
+# Enable and start systemd service (only if systemctl is available)
+if [ -f /etc/systemd/system/sins.service ] && command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl enable sins.service
     echo "SiNS server service enabled. Start it with: systemctl start sins"
+elif [ -f /etc/systemd/system/sins.service ]; then
+    echo "Warning: systemd service file found but systemctl not available (Docker environment)."
 else
     echo "Warning: systemd service file not found. Service not enabled."
 fi
