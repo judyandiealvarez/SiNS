@@ -112,34 +112,6 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-## Troubleshooting
-
-### Package Not Found After Upload
-
-- Wait a few minutes for Gemfury to index the package
-- Verify the package was uploaded: Check Gemfury dashboard
-- Check package name matches in repository
-
-### Authentication Issues
-
-- Verify GEMFURY_TOKEN secret is set correctly
-- Check token hasn't expired (regenerate if needed)
-- Ensure GEMFURY_USER matches your Gemfury account
-
-### Installation Fails
-
-```bash
-# Update package list
-sudo apt update
-
-# Check repository is accessible
-curl -s https://apt.fury.io/judyalvarez/Packages | head -20
-
-# Verify package exists
-apt-cache search sins
-apt-cache search sins-cli
-```
-
 ## Repository Management
 
 ### View Packages in Gemfury Dashboard

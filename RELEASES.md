@@ -163,33 +163,6 @@ Before creating a release:
 - Docker Compose examples
 - Security scan results
 
-## Troubleshooting
-
-### Release Failed
-
-1. Check GitHub Actions logs
-2. Verify secrets are set correctly
-3. Check tag format matches workflow triggers
-4. Ensure build environment has required tools
-
-### Package Not Available
-
-- **Gemfury**: Wait a few minutes for indexing
-- **GitHub Release**: Check workflow completed successfully
-
-### Installation Issues
-
-```bash
-# Check package dependencies
-dpkg -I package.deb | grep Depends
-
-# Install missing dependencies
-sudo apt-get install -f
-
-# Verify package integrity
-dpkg -c package.deb
-```
-
 ## Manual Release (Local Build)
 
 If you need to build packages locally:
