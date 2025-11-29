@@ -33,10 +33,10 @@ git push origin v1.0.0
 
 #### What Happens Automatically
 
-1. **Build Server**: .NET server application is built and packaged (`sins-server_1.0.0_amd64.deb`)
-2. **Build CLI**: .NET CLI application is built and packaged (`sns_1.0.0_amd64.deb`)
+1. **Build Server**: .NET server application is built and packaged (`sins_1.0.0_amd64.deb`)
+2. **Build CLI**: .NET CLI application is built and packaged (`sins-cli_1.0.0_amd64.deb`)
 3. **Deploy Server**: Package is uploaded to Gemfury APT repository
-4. **Deploy CLI**: Package is uploaded to APT repository (if configured)
+4. **Deploy CLI**: Package is uploaded to Gemfury APT repository
 5. **GitHub Release**: Single release is created with both deb packages attached
 6. **Verification**: Package availability is verified
 
@@ -46,33 +46,33 @@ git push origin v1.0.0
 ```bash
 curl -s https://get.fury.io/judyalvarez | bash
 sudo apt update
-sudo apt install sins-server
+sudo apt install sins
 ```
 
 **SiNS Server from GitHub Release:**
 ```bash
 # Download from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins-server_1.0.0_amd64.deb
+wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins_1.0.0_amd64.deb
 
 # Install
-sudo dpkg -i sins-server_1.0.0_amd64.deb
+sudo dpkg -i sins_1.0.0_amd64.deb
 sudo apt-get install -f
 ```
 
-**SiNS CLI from APT Repository:**
+**SiNS CLI from Gemfury:**
 ```bash
-echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
+curl -s https://get.fury.io/judyalvarez | bash
 sudo apt update
-sudo apt install sns
+sudo apt install sins-cli
 ```
 
 **SiNS CLI from GitHub Release:**
 ```bash
 # Download from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sns_1.0.0_amd64.deb
+wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins-cli_1.0.0_amd64.deb
 
 # Install
-sudo dpkg -i sns_1.0.0_amd64.deb
+sudo dpkg -i sins-cli_1.0.0_amd64.deb
 sudo apt-get install -f
 ```
 
@@ -135,9 +135,10 @@ Before creating a release:
 - `GEMFURY_TOKEN`: Gemfury API token
 - `GEMFURY_USER`: Gemfury username (judyalvarez)
 
-### For CLI Releases (APT Repository)
+### For All Releases (Gemfury)
 
-- `APT_REPO_SSH_KEY`: SSH private key for APT repository server
+- `GEMFURY_TOKEN`: Gemfury API token
+- `GEMFURY_USER`: Gemfury username (judyalvarez)
 
 ### For Docker Releases
 

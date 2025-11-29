@@ -242,7 +242,8 @@ This project is licensed under the GNU Lesser General Public License v3.0 - see 
 ## Releases
 
 SiNS is released including both server and CLI:
-- **Debian Packages**: Both `sins-server` and `sns` (CLI) in a single GitHub release
+- **Debian Packages**: Both `sins` (server) and `sins-cli` in a single GitHub release
+- **APT Repository**: Available on Gemfury (https://apt.fury.io/judyalvarez/)
 - **Docker Images**: Available on Docker Hub
 - **GitHub Releases**: With both deb packages attached
 
@@ -258,8 +259,8 @@ sudo apt update && sudo apt install sins-server
 
 **CLI Tool:**
 ```bash
-echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
-sudo apt update && sudo apt install sns
+curl -s https://get.fury.io/judyalvarez | bash
+sudo apt update && sudo apt install sins-cli
 ```
 
 **Or download both from GitHub Releases:**
