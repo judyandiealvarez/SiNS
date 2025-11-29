@@ -91,11 +91,19 @@ jobs:
           // Try to trigger workflow run via API
           try {
             // Get workflow ID
-            const workflows = await github.rest.actions.listWorkflowsForRepo({
+            const response = await github.rest.actions.listWorkflowsForRepo({
               owner: owner,
               repo: repo
             });
-            const workflow = workflows.data.workflows.find(w => w.path === '.github/workflows/build-and-release.yml');
+            
+            // Check if response has expected structure
+            if (!response || !response.data || !Array.isArray(response.data.workflows)) {
+              console.log(`⚠️ Unexpected API response format`);
+              console.log(`Tag ${tag} was created. If you have GH_PAT secret configured, the workflow should trigger automatically.`);
+              return;
+            }
+            
+            const workflow = response.data.workflows.find(w => w.path === '.github/workflows/build-and-release.yml');
             
             if (workflow) {
               await github.rest.actions.createWorkflowDispatch({
@@ -112,6 +120,10 @@ jobs:
             console.log(`⚠️ Could not trigger workflow via API`);
             console.log(`Tag ${tag} was created. If you have GH_PAT secret configured, the workflow should trigger automatically.`);
             console.log(`Error: ${error.message}`);
+            if (error.response) {
+              console.log(`Response status: ${error.response.status}`);
+              console.log(`Response data: ${JSON.stringify(error.response.data)}`);
+            }
           }
       
   build-docker:
