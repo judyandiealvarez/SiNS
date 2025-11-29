@@ -12,101 +12,68 @@ SiNS has three main components that can be released:
 
 ## Release Process
 
-### 1. SiNS Server Release
+### Unified Release (Recommended)
 
-The server is packaged as a Debian package and published to:
-- **Gemfury APT Repository**: `https://apt.fury.io/judyalvarez/`
-- **GitHub Releases**: With deb package attached
+Both SiNS Server and CLI are released together in a single GitHub release with both deb packages attached.
 
-#### Creating a Server Release
+#### Creating a Release
 
 **Option A: Using Git Tags (Recommended)**
 ```bash
-# Create and push a tag
-git tag server-v1.0.0
-git push origin server-v1.0.0
+# Create and push a tag (use 'v' prefix for unified releases)
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 **Option B: Manual Workflow Dispatch**
-1. Go to GitHub → Actions → "Build and Deploy SiNS Server"
+1. Go to GitHub → Actions → "Build and Release Debian Packages"
 2. Click "Run workflow"
-3. Enter version (e.g., `1.0.0`)
+3. Enter version (e.g., `1.0.0` or `v1.0.0`)
 4. Click "Run workflow"
 
 #### What Happens Automatically
 
-1. **Build**: .NET application is built in Release mode
-2. **Package**: Debian package is created (`sins-server_1.0.0_amd64.deb`)
-3. **Deploy to Gemfury**: Package is uploaded to Gemfury APT repository
-4. **GitHub Release**: Release is created with deb package attached
-5. **Verification**: Package availability is verified
+1. **Build Server**: .NET server application is built and packaged (`sins-server_1.0.0_amd64.deb`)
+2. **Build CLI**: .NET CLI application is built and packaged (`sns_1.0.0_amd64.deb`)
+3. **Deploy Server**: Package is uploaded to Gemfury APT repository
+4. **Deploy CLI**: Package is uploaded to APT repository (if configured)
+5. **GitHub Release**: Single release is created with both deb packages attached
+6. **Verification**: Package availability is verified
 
 #### Installation After Release
 
-**From Gemfury:**
+**SiNS Server from Gemfury:**
 ```bash
 curl -s https://get.fury.io/judyalvarez | bash
 sudo apt update
 sudo apt install sins-server
 ```
 
-**From GitHub Release:**
+**SiNS Server from GitHub Release:**
 ```bash
-# Download deb package from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/server-v1.0.0/sins-server_1.0.0_amd64.deb
+# Download from GitHub Releases page
+wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins-server_1.0.0_amd64.deb
 
 # Install
 sudo dpkg -i sins-server_1.0.0_amd64.deb
-sudo apt-get install -f  # Install dependencies if needed
+sudo apt-get install -f
 ```
 
-### 2. SiNS CLI Release
-
-The CLI tool is packaged as a Debian package and published to:
-- **APT Repository**: `http://tools.apt.home.net`
-- **GitHub Releases**: With deb package attached
-
-#### Creating a CLI Release
-
-**Option A: Using Git Tags (Recommended)**
-```bash
-# Create and push a tag
-git tag cli-v1.0.0
-git push origin cli-v1.0.0
-```
-
-**Option B: Manual Workflow Dispatch**
-1. Go to GitHub → Actions → "Build and Deploy SiNS CLI (sns)"
-2. Click "Run workflow"
-3. Enter version (e.g., `1.0.0`)
-4. Click "Run workflow"
-
-#### What Happens Automatically
-
-1. **Build**: .NET application is built in Release mode
-2. **Test**: CLI help command is tested
-3. **Package**: Debian package is created (`sns_1.0.0_amd64.deb`)
-4. **Deploy to APT**: Package is uploaded to APT repository
-5. **GitHub Release**: Release is created with deb package attached
-6. **Verification**: Package availability is verified
-
-#### Installation After Release
-
-**From APT Repository:**
+**SiNS CLI from APT Repository:**
 ```bash
 echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
 sudo apt update
 sudo apt install sns
 ```
 
-**From GitHub Release:**
+**SiNS CLI from GitHub Release:**
 ```bash
-# Download deb package from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/cli-v1.0.0/sns_1.0.0_amd64.deb
+# Download from GitHub Releases page
+wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sns_1.0.0_amd64.deb
 
 # Install
 sudo dpkg -i sns_1.0.0_amd64.deb
-sudo apt-get install -f  # Install dependencies if needed
+sudo apt-get install -f
 ```
 
 ### 3. Docker Image Release
@@ -148,9 +115,10 @@ Use semantic versioning: `MAJOR.MINOR.PATCH`
 
 ### Tag Formats
 
-- **Server**: `server-v1.0.0`
-- **CLI**: `cli-v1.0.0`
-- **Docker**: `v1.0.0`
+- **Unified Release**: `v1.0.0` (includes both server and CLI deb packages)
+- **Server Only**: `server-v1.0.0` (legacy, use unified release instead)
+- **CLI Only**: `cli-v1.0.0` (legacy, use unified release instead)
+- **Docker**: `v1.0.0` (same as unified release)
 
 ## Release Checklist
 
@@ -181,19 +149,13 @@ Before creating a release:
 
 ## Release Artifacts
 
-### Server Release Includes
+### Unified Release Includes
 
-- `sins-server_1.0.0_amd64.deb` - Debian package
+- `sins-server_1.0.0_amd64.deb` - Server Debian package
+- `sns_1.0.0_amd64.deb` - CLI Debian package
 - Release notes with changelog
-- Installation instructions
+- Installation instructions for both packages
 - Links to documentation
-
-### CLI Release Includes
-
-- `sns_1.0.0_amd64.deb` - Debian package
-- Release notes with changelog
-- Installation instructions
-- Usage examples
 
 ### Docker Release Includes
 

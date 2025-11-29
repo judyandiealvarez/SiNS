@@ -1,0 +1,359 @@
+name: Build and Release Debian Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-server:
+    runs-on: docker-build
+    outputs:
+      package-path: ${{ steps.package.outputs.path }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check .NET
+      run: |
+        dotnet --version
+        echo "Using existing .NET installation on docker-build runner"
+        
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y dpkg-dev build-essential fakeroot libcap2-bin
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.version }}
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          # Extract version from git tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Build server application
+      run: |
+        cd sins
+        echo "Building .NET application..."
+        dotnet restore
+        dotnet build -c Release --verbosity quiet
+        echo "Build completed successfully"
+        
+    - name: Build Debian package
+      run: |
+        cd sins
+        echo "Building Debian package..."
+        echo "Version: ${{ steps.version.outputs.version }}"
+        chmod +x build-package.sh
+        ./build-package.sh ${{ steps.version.outputs.version }}
+        echo "Package build completed"
+        
+    - name: Upload server package artifact
+      id: package
+      uses: actions/upload-artifact@v4
+      with:
+        name: sins-server-package
+        path: sins/sins-server_${{ steps.version.outputs.version }}_amd64.deb
+        retention-days: 30
+
+  build-cli:
+    runs-on: docker-build
+    outputs:
+      package-path: ${{ steps.package.outputs.path }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check .NET
+      run: |
+        dotnet --version
+        echo "Using existing .NET installation on docker-build runner"
+        
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y dpkg-dev build-essential fakeroot
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.version }}
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          # Extract version from git tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Build CLI application
+      run: |
+        cd sins-cli
+        echo "Building .NET application..."
+        dotnet restore
+        dotnet build -c Release --verbosity quiet
+        echo "Build completed successfully"
+        
+    - name: Test CLI application
+      run: |
+        cd sins-cli
+        dotnet run -- --help
+        
+    - name: Build Debian package
+      run: |
+        cd sins-cli
+        echo "Building Debian package..."
+        echo "Version: ${{ steps.version.outputs.version }}"
+        chmod +x build-package.sh
+        ./build-package.sh ${{ steps.version.outputs.version }}
+        echo "Package build completed"
+        
+    - name: Upload CLI package artifact
+      id: package
+      uses: actions/upload-artifact@v4
+      with:
+        name: sns-package
+        path: sins-cli/sns_${{ steps.version.outputs.version }}_amd64.deb
+        retention-days: 30
+
+  deploy-server:
+    needs: build-server
+    runs-on: docker-build
+    environment: public
+    
+    steps:
+    - name: Download server package artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sins-server-package
+        path: .
+        
+    - name: Deploy to Gemfury
+      env:
+        GEMFURY_TOKEN: ${{ secrets.GEMFURY_TOKEN }}
+        GEMFURY_USER: ${{ secrets.GEMFURY_USER }}
+      run: |
+        if [ -z "$GEMFURY_TOKEN" ] || [ -z "$GEMFURY_USER" ]; then
+          echo "⚠️ GEMFURY_TOKEN or GEMFURY_USER secret is not set - skipping Gemfury deployment"
+        else
+          echo "✅ Gemfury credentials are available"
+          PACKAGE_FILE=$(ls -t *.deb | head -1)
+          VERSION=$(echo $PACKAGE_FILE | sed 's/sins-server_\(.*\)_amd64.deb/\1/')
+          echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
+          curl -F package=@$PACKAGE_FILE \
+            https://$GEMFURY_TOKEN@push.fury.io/$GEMFURY_USER/
+          echo "✅ Package uploaded to Gemfury successfully!"
+        fi
+
+  deploy-cli:
+    needs: build-cli
+    runs-on: docker-build
+    environment: public
+    
+    steps:
+    - name: Download CLI package artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sns-package
+        path: .
+        
+    - name: Deploy to APT Repository
+      env:
+        APT_REPO_SSH_KEY: ${{ secrets.APT_REPO_SSH_KEY }}
+      run: |
+        if [ -z "$APT_REPO_SSH_KEY" ]; then
+          echo "⚠️ APT_REPO_SSH_KEY secret is not set - skipping APT repository deployment"
+        else
+          echo "✅ APT_REPO_SSH_KEY secret is available"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          eval $(ssh-agent -s)
+          echo "$APT_REPO_SSH_KEY" | tr -d '\r' | ssh-add -
+          ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
+          
+          PACKAGE_FILE=$(ls -t *.deb | head -1)
+          VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_amd64.deb/\1/')
+          echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
+          
+          scp -o StrictHostKeyChecking=no $PACKAGE_FILE jaal@10.11.2.10:/tmp/
+          ssh -o StrictHostKeyChecking=no jaal@10.11.2.10 << EOF
+            sudo /usr/local/bin/add-package.sh /tmp/$PACKAGE_FILE
+            rm /tmp/$PACKAGE_FILE
+            echo "Package added successfully!"
+          EOF
+        fi
+
+  release:
+    needs: [build-server, build-cli, deploy-server, deploy-cli]
+    runs-on: docker-build
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download server package artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sins-server-package
+        path: packages/
+        
+    - name: Download CLI package artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sns-package
+        path: packages/
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.version }}
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+        else
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Get changelog
+      id: changelog
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$PREVIOUS_TAG" ]; then
+          CHANGELOG=$(git log --oneline --no-merges $PREVIOUS_TAG..HEAD | head -30)
+        else
+          CHANGELOG=$(git log --oneline --no-merges | head -30)
+        fi
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Verify package files exist
+      run: |
+        echo "Checking package files..."
+        ls -lh packages/
+        SERVER_PKG=$(ls packages/sins-server_*.deb 2>/dev/null | head -1)
+        CLI_PKG=$(ls packages/sns_*.deb 2>/dev/null | head -1)
+        
+        if [ -z "$SERVER_PKG" ]; then
+          echo "❌ Server package not found!"
+          exit 1
+        fi
+        if [ -z "$CLI_PKG" ]; then
+          echo "❌ CLI package not found!"
+          exit 1
+        fi
+        
+        echo "✅ Server package: $SERVER_PKG"
+        echo "✅ CLI package: $CLI_PKG"
+        echo "server_pkg=$SERVER_PKG" >> $GITHUB_ENV
+        echo "cli_pkg=$CLI_PKG" >> $GITHUB_ENV
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GEMFURY_USER: ${{ secrets.GEMFURY_USER }}
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: SiNS ${{ steps.version.outputs.version }}
+        body: |
+          ## SiNS (Simple Name Server) ${{ steps.version.outputs.version }}
+          
+          **SiNS** stands for **[Si]mple [N]ame [S]erver** - a complete DNS server solution with web-based management interface.
+          
+          ### 📦 Debian Packages
+          
+          This release includes both SiNS Server and CLI deb packages:
+          
+          - **sins-server_${{ steps.version.outputs.version }}_amd64.deb** - DNS server application
+          - **sns_${{ steps.version.outputs.version }}_amd64.deb** - Command-line interface tool
+          
+          ### 🚀 Installation
+          
+          **SiNS Server:**
+          
+          ```bash
+          # From Gemfury APT repository
+          curl -s https://get.fury.io/${{ secrets.GEMFURY_USER }} | bash
+          sudo apt update
+          sudo apt install sins-server
+          
+          # Or download from GitHub Releases and install
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sins-server_${{ steps.version.outputs.version }}_amd64.deb
+          sudo dpkg -i sins-server_${{ steps.version.outputs.version }}_amd64.deb
+          sudo apt-get install -f
+          ```
+          
+          **SiNS CLI (sns):**
+          
+          ```bash
+          # From APT repository
+          echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
+          sudo apt update
+          sudo apt install sns
+          
+          # Or download from GitHub Releases and install
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sns_${{ steps.version.outputs.version }}_amd64.deb
+          sudo dpkg -i sns_${{ steps.version.outputs.version }}_amd64.deb
+          sudo apt-get install -f
+          ```
+          
+          ### 🚀 What's New
+          
+          ```
+          ${{ steps.changelog.outputs.changelog }}
+          ```
+          
+          ### 🔧 Features
+          
+          - **SiNS Hybrid DNS Server**: Authoritative and recursive DNS server
+          - **Web Management**: Modern Vue.js interface with Vuex state management
+          - **CLI Tool**: Command-line interface for server management
+          - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
+          - **Authentication**: JWT-based authentication with role-based access
+          - **Caching**: Intelligent DNS caching with configurable TTL
+          - **Production Ready**: Static IP addressing and proper service management
+          
+          ### 📚 Documentation
+          
+          - [Installation Guide](https://github.com/${{ github.repository }}/blob/main/docs/installation.md)
+          - [Quick Start](https://github.com/${{ github.repository }}/blob/main/docs/quick-start.md)
+          - [API Reference](https://github.com/${{ github.repository }}/blob/main/docs/api-reference.md)
+          - [Release Guide](https://github.com/${{ github.repository }}/blob/main/RELEASES.md)
+          
+          ### 🐳 Docker Image
+          
+          Docker image is also available:
+          
+          ```bash
+          docker pull judyandiealvarez/sins:${{ steps.version.outputs.version }}
+          ```
+        files: |
+          packages/sins-server_${{ steps.version.outputs.version }}_amd64.deb
+          packages/sns_${{ steps.version.outputs.version }}_amd64.deb
+        draft: false
+        prerelease: false
+
