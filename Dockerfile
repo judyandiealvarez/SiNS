@@ -1,8 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
-EXPOSE 53
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 
 # Build arguments for version
 ARG BUILD_NUMBER=0
@@ -12,18 +8,40 @@ ARG APP_VERSION=1.0.0
 ENV BUILD_NUMBER=$BUILD_NUMBER
 ENV APP_VERSION=$APP_VERSION
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["sins/sins.csproj", "sins/"]
-RUN dotnet restore "sins/sins.csproj"
-COPY . .
-WORKDIR "/src/sins"
-RUN dotnet build "sins.csproj" -c Release -o /app/build
+# Expose ports
+EXPOSE 80
+EXPOSE 443
+EXPOSE 53
 
-FROM build AS publish
-RUN dotnet publish "sins.csproj" -c Release -o /app/publish
+# Install prerequisites for APT repository access
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "sins.dll"]
+# Add Gemfury APT repository
+RUN echo "deb https://apt.fury.io/judyalvarez /" | tee /etc/apt/sources.list.d/fury.list
+
+# Update package list and install sins package
+# Note: Retry logic to handle Gemfury indexing delays
+# The version will be passed as a build argument
+RUN apt-get update && \
+    (apt-get install -y --no-install-recommends sins=${APP_VERSION} || \
+     (echo "Package sins=${APP_VERSION} not found, waiting for indexing..." && \
+      sleep 15 && \
+      apt-get update && \
+      (apt-get install -y --no-install-recommends sins=${APP_VERSION} || \
+       (echo "Still not found, trying latest version..." && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends sins)))) && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create necessary directories
+RUN mkdir -p /etc/sins /var/log/sins /var/lib/sins
+
+# Set capabilities for binding to port 53 (non-root)
+RUN setcap 'cap_net_bind_service=+ep' /opt/sins/sins || true
+
+# Use the installed binary
+WORKDIR /opt/sins
+ENTRYPOINT ["/opt/sins/sins"]
