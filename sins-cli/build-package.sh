@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-PACKAGE_NAME="sns"
+PACKAGE_NAME="sins-cli"
 VERSION=${1:-"1.0.0"}
 ARCH="amd64"
 BUILD_DIR="package-build"

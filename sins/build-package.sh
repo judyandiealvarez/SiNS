@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-PACKAGE_NAME="sins-server"
+PACKAGE_NAME="sins"
 VERSION=${1:-"1.0.0"}
 ARCH="amd64"
 BUILD_DIR="package-build"
@@ -42,7 +42,7 @@ cp debian/prerm ${PACKAGE_DIR}/DEBIAN/
 cp debian/postrm ${PACKAGE_DIR}/DEBIAN/
 
 # Copy systemd service file
-cp debian/sins-server.service ${PACKAGE_DIR}/etc/systemd/system/
+cp debian/sins.service ${PACKAGE_DIR}/etc/systemd/system/sins.service
 
 # Copy default appsettings.json to /etc/sins
 if [ -f appsettings.json ]; then

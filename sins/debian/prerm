@@ -2,12 +2,12 @@
 set -e
 
 # Stop the service before removal
-if systemctl is-active --quiet sins-server.service 2>/dev/null; then
-    systemctl stop sins-server.service
+if systemctl is-active --quiet sins.service 2>/dev/null; then
+    systemctl stop sins.service
 fi
 
 # Disable the service
-if systemctl is-enabled --quiet sins-server.service 2>/dev/null; then
-    systemctl disable sins-server.service
+if systemctl is-enabled --quiet sins.service 2>/dev/null; then
+    systemctl disable sins.service
 fi
 

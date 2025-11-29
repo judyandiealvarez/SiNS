@@ -27,10 +27,10 @@ fi
 setcap 'cap_net_bind_service=+ep' /opt/sins/sins || true
 
 # Enable and start systemd service
-if [ -f /etc/systemd/system/sins-server.service ]; then
+if [ -f /etc/systemd/system/sins.service ]; then
     systemctl daemon-reload
-    systemctl enable sins-server.service
-    echo "SiNS server service enabled. Start it with: systemctl start sins-server"
+    systemctl enable sins.service
+    echo "SiNS server service enabled. Start it with: systemctl start sins"
 else
     echo "Warning: systemd service file not found. Service not enabled."
 fi
@@ -38,5 +38,5 @@ fi
 echo "SiNS server installed successfully!"
 echo "Configuration: /etc/sins/appsettings.json"
 echo "Logs: /var/log/sins/"
-echo "Start service: systemctl start sins-server"
+echo "Start service: systemctl start sins"
 

@@ -1,4 +1,4 @@
-Package: sins-server
+Package: sins
 Version: 1.0.0
 Architecture: amd64
 Maintainer: SiNS Team <admin@home.net>

@@ -138,8 +138,8 @@ jobs:
       id: package
       uses: actions/upload-artifact@v4
       with:
-        name: sins-server-package
-        path: sins/sins-server_${{ steps.version.outputs.version }}_amd64.deb
+        name: sins-package
+        path: sins/sins_${{ steps.version.outputs.version }}_amd64.deb
         retention-days: 30
 
   build-cli:
@@ -202,8 +202,8 @@ jobs:
       id: package
       uses: actions/upload-artifact@v4
       with:
-        name: sns-package
-        path: sins-cli/sns_${{ steps.version.outputs.version }}_amd64.deb
+        name: sins-cli-package
+        path: sins-cli/sins-cli_${{ steps.version.outputs.version }}_amd64.deb
         retention-days: 30
 
   deploy-server:
@@ -215,7 +215,7 @@ jobs:
     - name: Download server package artifact
       uses: actions/download-artifact@v4
       with:
-        name: sins-server-package
+        name: sins-package
         path: .
         
     - name: Deploy to Gemfury
@@ -231,7 +231,7 @@ jobs:
         
         echo "✅ Gemfury credentials are available"
         PACKAGE_FILE=$(ls -t *.deb | head -1)
-        VERSION=$(echo $PACKAGE_FILE | sed 's/sins-server_\(.*\)_amd64.deb/\1/')
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sins_\(.*\)_amd64.deb/\1/')
         echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
         curl -F package=@$PACKAGE_FILE \
           https://$GEMFURY_TOKEN@push.fury.io/$GEMFURY_USER/
@@ -246,7 +246,7 @@ jobs:
     - name: Download CLI package artifact
       uses: actions/download-artifact@v4
       with:
-        name: sns-package
+        name: sins-cli-package
         path: .
         
     - name: Deploy to APT Repository
@@ -267,7 +267,7 @@ jobs:
         ssh-keyscan -H 10.11.2.10 >> ~/.ssh/known_hosts
         
         PACKAGE_FILE=$(ls -t *.deb | head -1)
-        VERSION=$(echo $PACKAGE_FILE | sed 's/sns_\(.*\)_amd64.deb/\1/')
+        VERSION=$(echo $PACKAGE_FILE | sed 's/sins-cli_\(.*\)_amd64.deb/\1/')
         echo "Deploying package: $PACKAGE_FILE (version: $VERSION)"
         
         scp -o StrictHostKeyChecking=no $PACKAGE_FILE jaal@10.11.2.10:/tmp/
@@ -290,13 +290,13 @@ jobs:
     - name: Download server package artifact
       uses: actions/download-artifact@v4
       with:
-        name: sins-server-package
+        name: sins-package
         path: packages/
         
     - name: Download CLI package artifact
       uses: actions/download-artifact@v4
       with:
-        name: sns-package
+        name: sins-cli-package
         path: packages/
         
     - name: Extract version
@@ -330,8 +330,8 @@ jobs:
       run: |
         echo "Checking package files..."
         ls -lh packages/
-        SERVER_PKG=$(ls packages/sins-server_*.deb 2>/dev/null | head -1)
-        CLI_PKG=$(ls packages/sns_*.deb 2>/dev/null | head -1)
+        SERVER_PKG=$(ls packages/sins_*.deb 2>/dev/null | head -1)
+        CLI_PKG=$(ls packages/sins-cli_*.deb 2>/dev/null | head -1)
         
         if [ -z "$SERVER_PKG" ]; then
           echo "❌ Server package not found!"
@@ -363,8 +363,8 @@ jobs:
           
           This release includes both SiNS Server and CLI deb packages:
           
-          - **sins-server_${{ steps.version.outputs.version }}_amd64.deb** - DNS server application
-          - **sns_${{ steps.version.outputs.version }}_amd64.deb** - Command-line interface tool
+          - **sins_${{ steps.version.outputs.version }}_amd64.deb** - DNS server application
+          - **sins-cli_${{ steps.version.outputs.version }}_amd64.deb** - Command-line interface tool
           
           ### 🚀 Installation
           
@@ -374,11 +374,11 @@ jobs:
           # From Gemfury APT repository
           curl -s https://get.fury.io/${{ secrets.GEMFURY_USER }} | bash
           sudo apt update
-          sudo apt install sins-server
+          sudo apt install sins
           
           # Or download from GitHub Releases and install
-          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sins-server_${{ steps.version.outputs.version }}_amd64.deb
-          sudo dpkg -i sins-server_${{ steps.version.outputs.version }}_amd64.deb
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sins_${{ steps.version.outputs.version }}_amd64.deb
+          sudo dpkg -i sins_${{ steps.version.outputs.version }}_amd64.deb
           sudo apt-get install -f
           ```
           
@@ -388,11 +388,11 @@ jobs:
           # From APT repository
           echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
           sudo apt update
-          sudo apt install sns
+          sudo apt install sins-cli
           
           # Or download from GitHub Releases and install
-          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sns_${{ steps.version.outputs.version }}_amd64.deb
-          sudo dpkg -i sns_${{ steps.version.outputs.version }}_amd64.deb
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sins-cli_${{ steps.version.outputs.version }}_amd64.deb
+          sudo dpkg -i sins-cli_${{ steps.version.outputs.version }}_amd64.deb
           sudo apt-get install -f
           ```
           
@@ -464,8 +464,8 @@ jobs:
           
           This release has been scanned for vulnerabilities using Trivy.
         files: |
-          packages/sins-server_${{ steps.version.outputs.version }}_amd64.deb
-          packages/sns_${{ steps.version.outputs.version }}_amd64.deb
+          packages/sins_${{ steps.version.outputs.version }}_amd64.deb
+          packages/sins-cli_${{ steps.version.outputs.version }}_amd64.deb
         draft: false
         prerelease: false
 
