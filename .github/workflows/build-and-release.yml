@@ -61,8 +61,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
         token: ${{ secrets.GH_PAT }}
+    
+    - name: Fetch all tags
+      run: |
+        git fetch --tags --force
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_PAT }}
     
     - name: Extract version
       id: version
