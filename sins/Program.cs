@@ -9,9 +9,56 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Load configuration from /etc/sins/appsettings.json if it exists (for deb package installation)
+// Insert at position 1 (after appsettings.json but before environment variables)
+// This ensures environment variables can override values from this file
 if (File.Exists("/etc/sins/appsettings.json"))
 {
-    builder.Configuration.AddJsonFile("/etc/sins/appsettings.json", optional: true, reloadOnChange: true);
+    var jsonSource = new Microsoft.Extensions.Configuration.Json.JsonConfigurationSource
+    {
+        Path = "/etc/sins/appsettings.json",
+        Optional = true,
+        ReloadOnChange = true
+    };
+    jsonSource.ResolveFileProvider();
+    // Insert after appsettings.json (index 0) but before environment variables
+    // Environment variables are typically at index 2-3, so insert at 1
+    if (builder.Configuration.Sources.Count > 1)
+    {
+        builder.Configuration.Sources.Insert(1, jsonSource);
+    }
+    else
+    {
+        builder.Configuration.Sources.Insert(0, jsonSource);
+    }
+}
+
+// Get connection string - ALWAYS check environment variable first (highest priority)
+// This ensures env vars override even if JSON file is loaded
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Log connection string for debugging (masking password)
+if (!string.IsNullOrEmpty(connectionString))
+{
+    // Mask password in log output
+    var maskedConnectionString = connectionString;
+    var passwordMatch = System.Text.RegularExpressions.Regex.Match(connectionString, @"Password=([^;]+)");
+    if (passwordMatch.Success)
+    {
+        maskedConnectionString = connectionString.Replace($"Password={passwordMatch.Groups[1].Value}", "Password=***");
+    }
+    Console.WriteLine($"[Configuration] Using connection string: {maskedConnectionString}");
+    
+    // Check if it contains a hardcoded IP (which shouldn't be used in containerized environments)
+    if (System.Text.RegularExpressions.Regex.IsMatch(connectionString, @"Host=\d+\.\d+\.\d+\.\d+"))
+    {
+        Console.WriteLine("[Configuration] WARNING: Connection string contains hardcoded IP address. Consider using service name or environment variable.");
+    }
+}
+else
+{
+    Console.WriteLine("[Configuration] ERROR: No connection string found! Set ConnectionStrings__DefaultConnection environment variable.");
+    throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 }
 
 // Add services to the container
@@ -46,7 +93,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // Configure Entity Framework
 builder.Services.AddDbContext<DnsContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.")));
 
 // Configure Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
