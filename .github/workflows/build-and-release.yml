@@ -24,6 +24,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+      
     - name: Restore dependencies
       run: dotnet restore
       
@@ -179,10 +184,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check .NET
-      run: |
-        dotnet --version
-        echo "Using existing .NET installation on k3s-prod runner"
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
         
     - name: Setup build environment
       run: |
@@ -251,10 +256,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check .NET
-      run: |
-        dotnet --version
-        echo "Using existing .NET installation on k3s-prod runner"
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
         
     - name: Setup build environment
       run: |
