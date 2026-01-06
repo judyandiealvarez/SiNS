@@ -44,19 +44,18 @@ jobs:
         # Fetch all tags
         git fetch --tags --force
         
-        # Get the latest tag
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-        LATEST_TAG_SHA=$(git rev-parse "$LATEST_TAG" 2>/dev/null || echo "")
+        # Find the tag that points to the triggering workflow's commit
+        TAG_FOR_COMMIT=$(git tag --points-at "$TRIGGERING_SHA" | grep "^v" | sort -V | tail -1)
         
-        echo "Latest tag: $LATEST_TAG (SHA: $LATEST_TAG_SHA)"
-        echo "Triggering workflow SHA: $TRIGGERING_SHA"
-        
-        # Check if the latest tag points to the triggering workflow's commit
-        if [ "$LATEST_TAG_SHA" = "$TRIGGERING_SHA" ]; then
-          echo "✅ Latest tag $LATEST_TAG was created by the triggering workflow"
+        if [ -n "$TAG_FOR_COMMIT" ]; then
+          echo "✅ Found tag $TAG_FOR_COMMIT pointing to triggering workflow commit"
+          LATEST_TAG="$TAG_FOR_COMMIT"
           HAS_NEW_TAG="true"
         else
-          echo "⚠️  Latest tag $LATEST_TAG does not match triggering workflow commit"
+          # Fallback: get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_TAG_SHA=$(git rev-parse "$LATEST_TAG" 2>/dev/null || echo "")
+          echo "⚠️  No tag found for triggering commit, using latest tag: $LATEST_TAG (SHA: $LATEST_TAG_SHA)"
           HAS_NEW_TAG="false"
         fi
         
