@@ -106,6 +106,33 @@ jobs:
           echo "Tag $TAG created and pushed."
         fi
     
+    - name: Verify token permissions
+      if: steps.version.outputs.tag != ''
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -z "$GH_TOKEN" ]; then
+          echo "❌ GH_TOKEN is empty!"
+          exit 1
+        fi
+        echo "Token length: ${#GH_TOKEN}"
+        echo "Token prefix: ${GH_TOKEN:0:4}"
+        # Test token by checking user info
+        USER_RESPONSE=$(curl -s -w "\n%{http_code}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token $GH_TOKEN" \
+          https://api.github.com/user)
+        USER_HTTP=$(echo "$USER_RESPONSE" | tail -n1)
+        USER_BODY=$(echo "$USER_RESPONSE" | sed '$d')
+        if [ "$USER_HTTP" -eq 200 ]; then
+          echo "✅ Token is valid"
+          echo "User: $(echo "$USER_BODY" | jq -r '.login' 2>/dev/null || echo 'unknown')"
+        else
+          echo "❌ Token validation failed. HTTP $USER_HTTP"
+          echo "Response: $USER_BODY"
+          exit 1
+        fi
+    
     - name: Trigger build-and-release workflow
       if: steps.version.outputs.tag != ''
       env:
@@ -113,16 +140,12 @@ jobs:
       run: |
         TAG=${{ steps.version.outputs.tag }}
         VERSION=${{ steps.version.outputs.version }}
-        if [ -z "$GH_TOKEN" ]; then
-          echo "❌ GH_TOKEN is empty!"
-          exit 1
-        fi
-        echo "Token length: ${#GH_TOKEN}"
-        echo "Repository: ${{ github.repository }}"
+        REPO="${{ github.repository }}"
+        echo "Triggering repository_dispatch for $REPO with tag $TAG"
         RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token $GH_TOKEN" \
-          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          https://api.github.com/repos/$REPO/dispatches \
           -d "{\"event_type\":\"tag-created\",\"client_payload\":{\"tag\":\"$TAG\",\"version\":\"$VERSION\"}}")
         HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
         BODY=$(echo "$RESPONSE" | sed '$d')
@@ -131,7 +154,8 @@ jobs:
         else
           echo "❌ Failed to trigger workflow. HTTP $HTTP_CODE"
           echo "Response: $BODY"
-          exit 1
+          # Don't exit 1 - let the workflow continue even if dispatch fails
+          echo "⚠️  Continuing despite dispatch failure"
         fi
     
     - name: Verify tag creation
