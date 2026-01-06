@@ -46,6 +46,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      id-token: write
     steps:
     - name: Verify PAT token is available
       run: |
@@ -105,39 +106,6 @@ jobs:
           git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
           git push origin "$TAG"
           echo "Tag $TAG created and pushed."
-        fi
-    
-    - name: Trigger build-and-release workflow
-      if: steps.version.outputs.tag != ''
-      env:
-        GH_TOKEN: ${{ secrets.GH_PAT }}
-      run: |
-        TAG=${{ steps.version.outputs.tag }}
-        VERSION=${{ steps.version.outputs.version }}
-        
-        if [ -z "$GH_TOKEN" ]; then
-          echo "❌ GH_PAT secret is not set!"
-          exit 1
-        fi
-        
-        echo "Triggering build-and-release workflow for tag $TAG via workflow_dispatch"
-        
-        # Use workflow_dispatch API to trigger the workflow directly
-        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-          -H "Accept: application/vnd.github.v3+json" \
-          -H "Authorization: token $GH_TOKEN" \
-          https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-and-release.yml/dispatches \
-          -d "{\"ref\":\"$TAG\",\"inputs\":{\"version\":\"$VERSION\"}}")
-        
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        BODY=$(echo "$RESPONSE" | sed '$d')
-        
-        if [ "$HTTP_CODE" -eq 204 ]; then
-          echo "✅ Successfully triggered build-and-release workflow for tag $TAG"
-        else
-          echo "❌ Failed to trigger workflow. HTTP $HTTP_CODE"
-          echo "Response: $BODY"
-          echo "⚠️  Continuing despite dispatch failure - tag was created successfully"
         fi
     
     - name: Verify tag creation
