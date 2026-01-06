@@ -61,9 +61,12 @@ jobs:
         fi
         
         VERSION=${LATEST_TAG#v}
+        # Ensure tag format is correct (with 'refs/tags/' prefix for checkout)
+        TAG_REF="refs/tags/$LATEST_TAG"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+        echo "tag=$TAG_REF" >> $GITHUB_OUTPUT
         echo "has-new-tag=$HAS_NEW_TAG" >> $GITHUB_OUTPUT
+        echo "Tag ref for checkout: $TAG_REF"
 
   test:
     runs-on: k3s-prod
