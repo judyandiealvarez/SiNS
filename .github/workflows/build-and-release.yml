@@ -385,7 +385,8 @@ jobs:
 
   build-docker:
     runs-on: k3s-prod
-    needs: [deploy-server, deploy-cli]
+    needs: [deploy-server, deploy-cli, get-latest-tag]
+    if: always() && (needs.deploy-server.result == 'success' && needs.deploy-cli.result == 'success')
     environment: public
     permissions:
       contents: read
@@ -396,6 +397,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_PAT }}
+        ref: ${{ github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref || github.ref) }}
       
     - name: Extract version
       id: version
@@ -403,6 +405,9 @@ jobs:
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           VERSION=${{ github.event.inputs.version }}
           VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" == "workflow_run" ]; then
+          VERSION="${{ needs.get-latest-tag.outputs.version }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
         elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
           VERSION=${GITHUB_REF#refs/tags/v}
