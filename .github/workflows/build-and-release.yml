@@ -20,13 +20,14 @@ env:
 
 jobs:
   get-latest-tag:
-    if: github.event_name == 'workflow_run'
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     runs-on: k3s-prod
     permissions:
       contents: read
     outputs:
       version: ${{ steps.tag.outputs.version }}
       tag: ${{ steps.tag.outputs.tag }}
+      has-new-tag: ${{ steps.tag.outputs.has-new-tag }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -36,11 +37,33 @@ jobs:
     - name: Get latest tag
       id: tag
       run: |
+        # Get the commit SHA from the triggering workflow run
+        TRIGGERING_SHA="${{ github.event.workflow_run.head_sha }}"
+        echo "Triggering workflow SHA: $TRIGGERING_SHA"
+        
+        # Fetch all tags
+        git fetch --tags --force
+        
+        # Get the latest tag
         LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        LATEST_TAG_SHA=$(git rev-parse "$LATEST_TAG" 2>/dev/null || echo "")
+        
+        echo "Latest tag: $LATEST_TAG (SHA: $LATEST_TAG_SHA)"
+        echo "Triggering workflow SHA: $TRIGGERING_SHA"
+        
+        # Check if the latest tag points to the triggering workflow's commit
+        if [ "$LATEST_TAG_SHA" = "$TRIGGERING_SHA" ]; then
+          echo "✅ Latest tag $LATEST_TAG was created by the triggering workflow"
+          HAS_NEW_TAG="true"
+        else
+          echo "⚠️  Latest tag $LATEST_TAG does not match triggering workflow commit"
+          HAS_NEW_TAG="false"
+        fi
+        
         VERSION=${LATEST_TAG#v}
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-        echo "Latest tag: $LATEST_TAG (version: $VERSION)"
+        echo "has-new-tag=$HAS_NEW_TAG" >> $GITHUB_OUTPUT
 
   test:
     runs-on: k3s-prod
@@ -143,7 +166,7 @@ jobs:
 
   build-server:
     needs: [test, get-latest-tag]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.version != '')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.has-new-tag == 'true')
     runs-on: k3s-prod
     permissions:
       contents: read
@@ -216,7 +239,7 @@ jobs:
 
   build-cli:
     needs: [test, get-latest-tag]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.version != '')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.has-new-tag == 'true')
     runs-on: k3s-prod
     permissions:
       contents: read
