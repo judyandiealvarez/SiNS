@@ -458,6 +458,7 @@ jobs:
         cache-to: type=gha,mode=max
 
     - name: Run Trivy vulnerability scanner
+      id: trivy
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
@@ -466,8 +467,8 @@ jobs:
       if: steps.version.outputs.version != ''
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
+      uses: github/codeql-action/upload-sarif@v4
+      if: always() && steps.version.outputs.version != '' && (steps.trivy.conclusion == 'success' || steps.trivy.conclusion == 'failure')
       with:
         sarif_file: 'trivy-results.sarif'
 
