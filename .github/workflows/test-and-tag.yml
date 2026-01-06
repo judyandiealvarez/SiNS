@@ -46,11 +46,29 @@ jobs:
     permissions:
       contents: write
     steps:
+    - name: Verify PAT token is available
+      run: |
+        if [ -z "${{ secrets.GH_PAT }}" ]; then
+          echo "WARNING: GH_PAT secret is not available, will use GITHUB_TOKEN"
+        else
+          echo "GH_PAT secret is available (length: ${#GH_PAT} chars)"
+        fi
+    
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+    
+    - name: Configure git remote with PAT token
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -n "$GH_TOKEN" ]; then
+          echo "Configuring git remote with PAT token"
+          git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+        else
+          echo "GH_TOKEN not available, using default authentication"
+        fi
     
     - name: Fetch all tags
       run: |
