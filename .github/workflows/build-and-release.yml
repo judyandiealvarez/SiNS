@@ -110,10 +110,10 @@ jobs:
     permissions:
       contents: read
       security-events: write
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_PAT }}
       
@@ -139,52 +139,52 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
         fi
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        registry: docker.io
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          registry: docker.io
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
         build-args: |
           APP_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
         image-ref: ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
       if: steps.version.outputs.version != ''
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
 
   build-server:
     runs-on: k3s-prod
@@ -425,10 +425,10 @@ jobs:
     runs-on: k3s-prod
     permissions:
       contents: write
-
+    
     steps:
     - name: Checkout code
-        uses: actions/checkout@v4
+      uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_PAT }}
       
@@ -446,7 +446,7 @@ jobs:
         
     - name: Extract version
       id: version
-        run: |
+      run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           VERSION=${{ github.event.inputs.version }}
           VERSION=${VERSION#v}
@@ -471,18 +471,18 @@ jobs:
         fi
         
     - name: Get changelog
-        id: changelog
-        run: |
-            PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-            if [ -n "$PREVIOUS_TAG" ]; then
+      id: changelog
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$PREVIOUS_TAG" ]; then
           CHANGELOG=$(git log --oneline --no-merges $PREVIOUS_TAG..HEAD | head -30)
-            else
+        else
           CHANGELOG=$(git log --oneline --no-merges | head -30)
-          fi
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
+        fi
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
     - name: Verify package files exist
       run: |
         echo "Checking package files..."
@@ -506,28 +506,28 @@ jobs:
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
-        env:
+      env:
         GEMFURY_USER: ${{ secrets.GEMFURY_USER }}
-        with:
+      with:
         tag_name: ${{ steps.version.outputs.tag }}
         name: SiNS ${{ steps.version.outputs.version }}
-          body: |
+        body: |
           ## SiNS (Simple Name Server) ${{ steps.version.outputs.version }}
-            
-            **SiNS** stands for **[Si]mple [N]ame [S]erver** - a complete DNS server solution with web-based management interface.
-            
+          
+          **SiNS** stands for **[Si]mple [N]ame [S]erver** - a complete DNS server solution with web-based management interface.
+          
           ### 📦 Debian Packages
           
           This release includes both SiNS Server and CLI deb packages:
-            
+          
           - **sins_${{ steps.version.outputs.version }}_amd64.deb** - DNS server application
           - **sins-cli_${{ steps.version.outputs.version }}_amd64.deb** - Command-line interface tool
-            
+          
           ### 🚀 Installation
-            
+          
           **SiNS Server:**
-            
-            ```bash
+          
+          ```bash
           # From Gemfury APT repository
           curl -s https://get.fury.io/${{ secrets.GEMFURY_USER }} | bash
           sudo apt update
@@ -537,11 +537,11 @@ jobs:
           wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/sins_${{ steps.version.outputs.version }}_amd64.deb
           sudo dpkg -i sins_${{ steps.version.outputs.version }}_amd64.deb
           sudo apt-get install -f
-            ```
-            
+          ```
+          
           **SiNS CLI (sns):**
-            
-            ```bash
+          
+          ```bash
           # From APT repository
           echo "deb http://tools.apt.home.net /" | sudo tee /etc/apt/sources.list.d/custom.list
           sudo apt update
@@ -558,16 +558,16 @@ jobs:
           ```
           ${{ steps.changelog.outputs.changelog }}
           ```
-            
-            ### 🔧 Features
-            
-            - **SiNS Hybrid DNS Server**: Authoritative and recursive DNS server
-            - **Web Management**: Modern Vue.js interface with Vuex state management
+          
+          ### 🔧 Features
+          
+          - **SiNS Hybrid DNS Server**: Authoritative and recursive DNS server
+          - **Web Management**: Modern Vue.js interface with Vuex state management
           - **CLI Tool**: Command-line interface for server management
-            - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
-            - **Authentication**: JWT-based authentication with role-based access
-            - **Caching**: Intelligent DNS caching with configurable TTL
-            - **Production Ready**: Static IP addressing and proper service management
+          - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
+          - **Authentication**: JWT-based authentication with role-based access
+          - **Caching**: Intelligent DNS caching with configurable TTL
+          - **Production Ready**: Static IP addressing and proper service management
           
           ### 📚 Documentation
           
@@ -583,46 +583,46 @@ jobs:
           ```bash
           docker pull judyandiealvarez/sins:${{ steps.version.outputs.version }}
           ```
-            
-            ### 🐳 Docker Compose
-            
-            ```yaml
-            version: '3.8'
-            services:
-              postgres:
-                image: postgres:15
-                environment:
-                  POSTGRES_DB: dns_server
-                  POSTGRES_USER: postgres
-                  POSTGRES_PASSWORD: postgres
-                networks:
-                  dns-network:
-                    ipv4_address: 172.20.0.2
-                    
-              dns-server:
+          
+          ### 🐳 Docker Compose
+          
+          ```yaml
+          version: '3.8'
+          services:
+            postgres:
+              image: postgres:15
+              environment:
+                POSTGRES_DB: dns_server
+                POSTGRES_USER: postgres
+                POSTGRES_PASSWORD: postgres
+              networks:
+                dns-network:
+                  ipv4_address: 172.20.0.2
+                  
+            dns-server:
               image: judyandiealvarez/sins:${{ steps.version.outputs.version }}
-                ports:
-                  - "53:53/udp"
-                  - "53:53/tcp"
-                  - "80:80"
-                networks:
-                  dns-network:
-                    ipv4_address: 172.20.0.3
-                    
-            networks:
-              dns-network:
-                driver: bridge
-                ipam:
-                  config:
-                    - subnet: 172.20.0.0/16
-            ```
-            
-            ### 🔒 Security
-            
-            This release has been scanned for vulnerabilities using Trivy.
+              ports:
+                - "53:53/udp"
+                - "53:53/tcp"
+                - "80:80"
+              networks:
+                dns-network:
+                  ipv4_address: 172.20.0.3
+                  
+          networks:
+            dns-network:
+              driver: bridge
+              ipam:
+                config:
+                  - subnet: 172.20.0.0/16
+          ```
+          
+          ### 🔒 Security
+          
+          This release has been scanned for vulnerabilities using Trivy.
         files: |
           packages/sins_${{ steps.version.outputs.version }}_amd64.deb
           packages/sins-cli_${{ steps.version.outputs.version }}_amd64.deb
-          draft: false
-          prerelease: false
+        draft: false
+        prerelease: false
 
