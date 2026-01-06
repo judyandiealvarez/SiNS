@@ -45,6 +45,7 @@ jobs:
     environment: public
     permissions:
       contents: write
+      actions: write
     steps:
     - name: Verify PAT token is available
       run: |
@@ -106,34 +107,7 @@ jobs:
           echo "Tag $TAG created and pushed."
         fi
     
-    - name: Verify token permissions
-      if: steps.version.outputs.tag != ''
-      env:
-        GH_TOKEN: ${{ secrets.GH_PAT }}
-      run: |
-        if [ -z "$GH_TOKEN" ]; then
-          echo "❌ GH_TOKEN is empty!"
-          exit 1
-        fi
-        echo "Token length: ${#GH_TOKEN}"
-        echo "Token prefix: ${GH_TOKEN:0:4}"
-        # Test token by checking user info
-        USER_RESPONSE=$(curl -s -w "\n%{http_code}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          -H "Authorization: token $GH_TOKEN" \
-          https://api.github.com/user)
-        USER_HTTP=$(echo "$USER_RESPONSE" | tail -n1)
-        USER_BODY=$(echo "$USER_RESPONSE" | sed '$d')
-        if [ "$USER_HTTP" -eq 200 ]; then
-          echo "✅ Token is valid"
-          echo "User: $(echo "$USER_BODY" | jq -r '.login' 2>/dev/null || echo 'unknown')"
-        else
-          echo "❌ Token validation failed. HTTP $USER_HTTP"
-          echo "Response: $USER_BODY"
-          exit 1
-        fi
-    
-    - name: Trigger build-and-release workflow
+    - name: Trigger build-and-release workflow via API
       if: steps.version.outputs.tag != ''
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -141,21 +115,30 @@ jobs:
         TAG=${{ steps.version.outputs.tag }}
         VERSION=${{ steps.version.outputs.version }}
         REPO="${{ github.repository }}"
+        
+        if [ -z "$GH_TOKEN" ]; then
+          echo "❌ GH_PAT secret is not set!"
+          exit 1
+        fi
+        
         echo "Triggering repository_dispatch for $REPO with tag $TAG"
-        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+        
+        # Use curl with proper error handling - GitHub API v3 expects "token" not "Bearer" for PAT
+        HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token $GH_TOKEN" \
           https://api.github.com/repos/$REPO/dispatches \
           -d "{\"event_type\":\"tag-created\",\"client_payload\":{\"tag\":\"$TAG\",\"version\":\"$VERSION\"}}")
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        BODY=$(echo "$RESPONSE" | sed '$d')
+        
         if [ "$HTTP_CODE" -eq 204 ]; then
           echo "✅ Successfully triggered build-and-release workflow for tag $TAG"
         else
           echo "❌ Failed to trigger workflow. HTTP $HTTP_CODE"
-          echo "Response: $BODY"
-          # Don't exit 1 - let the workflow continue even if dispatch fails
-          echo "⚠️  Continuing despite dispatch failure"
+          if [ -f /tmp/response.json ]; then
+            echo "Response: $(cat /tmp/response.json)"
+          fi
+          echo "⚠️  Note: The token may need 'repo' scope to trigger repository_dispatch"
+          echo "⚠️  Continuing despite dispatch failure - tag was created successfully"
         fi
     
     - name: Verify tag creation
