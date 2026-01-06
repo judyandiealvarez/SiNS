@@ -101,11 +101,24 @@ jobs:
           echo "Tag $TAG already exists, skipping"
         else
           git tag -a "$TAG" -m "Release $TAG"
-          # Configure remote URL with PAT token so push uses PAT and triggers workflows
           git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
           git push origin "$TAG"
-          echo "Tag $TAG created and pushed. Workflow will trigger automatically from tag push."
+          echo "Tag $TAG created and pushed."
         fi
+    
+    - name: Trigger build-and-release workflow
+      if: steps.version.outputs.tag != ''
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        TAG=${{ steps.version.outputs.tag }}
+        VERSION=${{ steps.version.outputs.version }}
+        curl -X POST \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token $GH_TOKEN" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          -d "{\"event_type\":\"tag-created\",\"client_payload\":{\"tag\":\"$TAG\",\"version\":\"$VERSION\"}}"
+        echo "Triggered build-and-release workflow for tag $TAG"
     
     - name: Verify tag creation
       if: steps.version.outputs.tag != ''

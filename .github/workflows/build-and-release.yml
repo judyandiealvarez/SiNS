@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  repository_dispatch:
+    types: [tag-created]
   workflow_dispatch:
     inputs:
       version:
@@ -15,7 +17,107 @@ env:
   IMAGE_NAME: judyandiealvarez/sins
 
 jobs:
+  test:
+    runs-on: k3s-prod
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.ref }}
+      
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          8.0.x
+          9.0.x
+      env:
+        DOTNET_INSTALL_DIR: $HOME/.dotnet
+      
+    - name: Add .NET to PATH
+      run: |
+        echo "$HOME/.dotnet" >> $GITHUB_PATH
+      
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+  create-tag:
+    needs: [test]
+    if: false
+    runs-on: k3s-prod
+    environment: public
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Configure git remote with PAT token
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -n "$GH_TOKEN" ]; then
+          echo "Configuring git remote with PAT token"
+          git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+        else
+          echo "GH_TOKEN not available, using default authentication"
+        fi
+    
+    - name: Fetch all tags
+      run: |
+        git fetch --tags --force
+    
+    - name: Extract version
+      id: version
+      run: |
+        # Get latest tag or use 0.0.0
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        BASE_VERSION=${LATEST_TAG#v}
+        # Increment patch version
+        IFS='.' read -ra VERSION_PARTS <<< "$BASE_VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        PATCH=$((PATCH + 1))
+        VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Create git tag
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        TAG=${{ steps.version.outputs.tag }}
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists, skipping"
+        else
+          git tag -a "$TAG" -m "Release $TAG"
+          git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+          git push origin "$TAG"
+          echo "Tag $TAG created and pushed. Build jobs will run in this workflow."
+        fi
+    
+    - name: Set version output for downstream jobs
+      id: tag_version
+      run: |
+        echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+
   build-server:
+    needs: [test]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
     runs-on: k3s-prod
     permissions:
       contents: read
@@ -27,18 +129,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GH_PAT }}
-      
+        fetch-depth: 0
+        ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.ref }}
+    
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
       env:
-        DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
+        DOTNET_INSTALL_DIR: $HOME/.dotnet
         
     - name: Add .NET to PATH
       run: |
-        echo "${{ runner.tool_cache }}/dotnet" >> $GITHUB_PATH
+        echo "$HOME/.dotnet" >> $GITHUB_PATH
         
     - name: Setup build environment
       run: |
@@ -50,23 +153,13 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           VERSION=${{ github.event.inputs.version }}
-          # Remove 'v' prefix if present
           VERSION=${VERSION#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          # Extract version from git tag (remove 'v' prefix)
-          VERSION=${GITHUB_REF#refs/tags/v}
+        elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+          VERSION="${{ github.event.client_payload.version }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-        else
-          # For main branch, use git describe to get version from latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          COMMIT_COUNT=$(git rev-list --count ${LATEST_TAG}..HEAD 2>/dev/null || echo "0")
-          BASE_VERSION=${LATEST_TAG#v}
-          if [ "$COMMIT_COUNT" -gt "0" ]; then
-            VERSION="${BASE_VERSION}.${COMMIT_COUNT}"
-          else
-            VERSION="$BASE_VERSION"
-          fi
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
         fi
         
@@ -96,6 +189,8 @@ jobs:
         retention-days: 30
 
   build-cli:
+    needs: [test]
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
     runs-on: k3s-prod
     permissions:
       contents: read
@@ -107,18 +202,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GH_PAT }}
-      
+        fetch-depth: 0
+        ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.ref }}
+    
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
       env:
-        DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
+        DOTNET_INSTALL_DIR: $HOME/.dotnet
         
     - name: Add .NET to PATH
       run: |
-        echo "${{ runner.tool_cache }}/dotnet" >> $GITHUB_PATH
+        echo "$HOME/.dotnet" >> $GITHUB_PATH
         
     - name: Setup build environment
       run: |
@@ -130,23 +226,13 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           VERSION=${{ github.event.inputs.version }}
-          # Remove 'v' prefix if present
           VERSION=${VERSION#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          # Extract version from git tag (remove 'v' prefix)
-          VERSION=${GITHUB_REF#refs/tags/v}
+        elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+          VERSION="${{ github.event.client_payload.version }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-        else
-          # For main branch, use git describe to get version from latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          COMMIT_COUNT=$(git rev-list --count ${LATEST_TAG}..HEAD 2>/dev/null || echo "0")
-          BASE_VERSION=${LATEST_TAG#v}
-          if [ "$COMMIT_COUNT" -gt "0" ]; then
-            VERSION="${BASE_VERSION}.${COMMIT_COUNT}"
-          else
-            VERSION="$BASE_VERSION"
-          fi
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
         fi
         
