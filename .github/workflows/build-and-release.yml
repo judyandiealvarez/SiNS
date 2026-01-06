@@ -97,8 +97,23 @@ jobs:
           git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
           # Push tag - using PAT token should allow it to trigger workflows
           git push origin "$TAG"
-          echo "Tag $TAG created and pushed. Workflow will trigger automatically from tag push."
+          echo "Tag $TAG created and pushed."
         fi
+    
+    - name: Trigger workflow for tag
+      if: steps.version.outputs.tag != ''
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        TAG=${{ steps.version.outputs.tag }}
+        VERSION=${{ steps.version.outputs.version }}
+        # Manually trigger the workflow for the tag since workflow-triggered tag pushes
+        # don't trigger other workflows even with PAT token
+        echo "Triggering workflow for tag $TAG..."
+        gh workflow run "Build and Release" \
+          --ref "$TAG" \
+          --field version="$VERSION"
+        echo "✅ Workflow triggered for tag $TAG"
     
     - name: Verify tag creation
       if: steps.version.outputs.tag != ''
