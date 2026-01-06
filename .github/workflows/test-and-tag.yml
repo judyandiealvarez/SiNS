@@ -107,7 +107,7 @@ jobs:
           echo "Tag $TAG created and pushed."
         fi
     
-    - name: Trigger build-and-release workflow via GitHub CLI
+    - name: Trigger build-and-release workflow
       if: steps.version.outputs.tag != ''
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -120,18 +120,23 @@ jobs:
           exit 1
         fi
         
-        echo "Triggering repository_dispatch for tag $TAG"
+        echo "Triggering build-and-release workflow for tag $TAG via workflow_dispatch"
         
-        # Use GitHub CLI which handles authentication better
-        gh api repos/${{ github.repository }}/dispatches \
-          -X POST \
-          -f event_type=tag-created \
-          -f client_payload='{"tag":"'$TAG'","version":"'$VERSION'"}'
+        # Use workflow_dispatch API to trigger the workflow directly
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: token $GH_TOKEN" \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-and-release.yml/dispatches \
+          -d "{\"ref\":\"$TAG\",\"inputs\":{\"version\":\"$VERSION\"}}")
         
-        if [ $? -eq 0 ]; then
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        BODY=$(echo "$RESPONSE" | sed '$d')
+        
+        if [ "$HTTP_CODE" -eq 204 ]; then
           echo "✅ Successfully triggered build-and-release workflow for tag $TAG"
         else
-          echo "❌ Failed to trigger workflow via GitHub CLI"
+          echo "❌ Failed to trigger workflow. HTTP $HTTP_CODE"
+          echo "Response: $BODY"
           echo "⚠️  Continuing despite dispatch failure - tag was created successfully"
         fi
     
