@@ -1,0 +1,93 @@
+name: Test and Create Tag
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: judyandiealvarez/sins
+
+jobs:
+  test:
+    runs-on: k3s-prod
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          8.0.x
+          9.0.x
+      env:
+        DOTNET_INSTALL_DIR: $HOME/.dotnet
+      
+    - name: Add .NET to PATH
+      run: |
+        echo "$HOME/.dotnet" >> $GITHUB_PATH
+      
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+  create-tag:
+    needs: [test]
+    runs-on: k3s-prod
+    environment: public
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Fetch all tags
+      run: |
+        git fetch --tags --force
+    
+    - name: Extract version
+      id: version
+      run: |
+        # Get latest tag or use 0.0.0
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        BASE_VERSION=${LATEST_TAG#v}
+        # Increment patch version
+        IFS='.' read -ra VERSION_PARTS <<< "$BASE_VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        PATCH=$((PATCH + 1))
+        VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Create git tag
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        TAG=${{ steps.version.outputs.tag }}
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists, skipping"
+        else
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "Tag $TAG created and pushed. Workflow will trigger automatically from tag push."
+        fi
+    
+    - name: Verify tag creation
+      if: steps.version.outputs.tag != ''
+      run: |
+        TAG=${{ steps.version.outputs.tag }}
+        echo "✅ Tag $TAG was created and pushed"
