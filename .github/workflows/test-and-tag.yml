@@ -113,6 +113,12 @@ jobs:
       run: |
         TAG=${{ steps.version.outputs.tag }}
         VERSION=${{ steps.version.outputs.version }}
+        if [ -z "$GH_TOKEN" ]; then
+          echo "❌ GH_TOKEN is empty!"
+          exit 1
+        fi
+        echo "Token length: ${#GH_TOKEN}"
+        echo "Repository: ${{ github.repository }}"
         RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token $GH_TOKEN" \
