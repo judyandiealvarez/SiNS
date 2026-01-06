@@ -92,7 +92,8 @@ jobs:
           echo "Tag $TAG already exists, skipping"
         else
           git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          # Use PAT token in URL to allow tag push to trigger workflows
+          git push https://${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git "$TAG"
           echo "Tag $TAG created and pushed. Workflow will trigger automatically from tag push."
         fi
     
