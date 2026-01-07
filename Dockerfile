@@ -17,11 +17,12 @@ EXPOSE 53
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
-    wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Microsoft .NET repository so apt can resolve dotnet-runtime-8.0 dependency
-RUN wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
+# Using curl instead of wget because wget fails SSL handshake in buildkit containers
+RUN curl -L https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     rm packages-microsoft-prod.deb
 
