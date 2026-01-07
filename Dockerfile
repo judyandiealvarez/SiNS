@@ -14,7 +14,10 @@ EXPOSE 443
 EXPOSE 53
 
 # Install prerequisites for APT repository access
-RUN apt-get update && \
+# Use DNS servers that work in buildkit containers
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
