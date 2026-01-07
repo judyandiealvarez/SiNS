@@ -396,8 +396,16 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GH_PAT }}
         ref: ${{ github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref || github.ref) }}
+    
+    - name: Configure git remote with PAT token
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -n "$GH_TOKEN" ]; then
+          echo "Configuring git remote with PAT token"
+          git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+        fi
       
     - name: Extract version
       id: version
