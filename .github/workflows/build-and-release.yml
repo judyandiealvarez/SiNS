@@ -396,15 +396,24 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref || github.ref) }}
+        fetch-depth: 0
     
-    - name: Configure git remote with PAT token
+    - name: Configure git remote and checkout tag
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
       run: |
-        if [ -n "$GH_TOKEN" ]; then
-          echo "Configuring git remote with PAT token"
-          git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+        TAG_REF="${{ github.event_name == 'workflow_run' && needs.get-latest-tag.outputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref || '') }}"
+        if [ -n "$TAG_REF" ] && [ "$TAG_REF" != "refs/heads/main" ]; then
+          if [ -n "$GH_TOKEN" ]; then
+            echo "Configuring git remote with PAT token"
+            git remote set-url origin https://$GH_TOKEN@github.com/${{ github.repository }}.git
+          fi
+          echo "Fetching tag: $TAG_REF"
+          git fetch origin "$TAG_REF"
+          git checkout "$TAG_REF"
+          echo "Checked out: $TAG_REF"
+        else
+          echo "Using default checkout (main branch or no tag specified)"
         fi
       
     - name: Extract version
