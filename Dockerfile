@@ -20,7 +20,7 @@ RUN apt-get update && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Microsoft .NET repository so apt can resolve dotnet-runtime-9.0 dependency
+# Add Microsoft .NET repository (needed for apt to resolve dotnet-runtime-9.0 dependency)
 # Using curl instead of wget because wget fails SSL handshake in buildkit containers
 RUN curl -L https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
@@ -30,11 +30,11 @@ RUN curl -L https://packages.microsoft.com/config/debian/12/packages-microsoft-p
 # Using [trusted=yes] because Gemfury may not provide a Release file
 RUN echo "deb [trusted=yes] https://judyalvarez@apt.fury.io/judyalvarez /" | tee /etc/apt/sources.list.d/fury.list
 
-# Update package list, install dotnet-runtime-9.0 (to satisfy sins dependency), then install sins package
+# Install sins package
+# dotnet-runtime-9.0 is already in the base image, but apt needs the repo to resolve the dependency
+# apt will install it as a dependency if needed, or skip if already satisfied
 # Note: Retry logic to handle Gemfury indexing delays
-# The version will be passed as a build argument
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends dotnet-runtime-9.0 && \
     (apt-get install -y --no-install-recommends sins=${APP_VERSION} || \
      (echo "Package sins=${APP_VERSION} not found, waiting for indexing..." && \
       sleep 15 && \

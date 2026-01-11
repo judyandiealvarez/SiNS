@@ -2,7 +2,7 @@ Package: sins
 Version: 1.0.0
 Architecture: amd64
 Maintainer: SiNS Team <admin@home.net>
-Depends: dotnet-runtime-8.0, postgresql-client, libcap2-bin
+Depends: dotnet-runtime-9.0, postgresql-client, libcap2-bin
 Description: SiNS DNS Server
  A hybrid authoritative and recursive DNS server with web-based management interface.
  .
