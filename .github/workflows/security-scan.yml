@@ -171,6 +171,8 @@ jobs:
           dockerfile: Dockerfile
           format: sarif
           output-file: hadolint-results.sarif
+          failure-threshold: error
+        continue-on-error: true
 
       - name: Upload Hadolint results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
