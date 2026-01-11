@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using sins.Data;
 using sins.Services;
 using System.Text;
+using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,9 +91,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure Entity Framework
-builder.Services.AddDbContext<DnsContext>(options =>
-    options.UseNpgsql(connectionString ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.")));
+// Configure Database Service
+builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
 
 // Configure Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -153,11 +152,16 @@ app.MapControllers();
 // Ensure database is created and initialize default configuration
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
-    context.Database.EnsureCreated();
+    var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+    await databaseService.EnsureTablesCreatedAsync();
 
     // Create default admin user if no users exist
-    if (!context.Users.Any())
+    using var connection = databaseService.GetConnection();
+    var userCount = await connection.QuerySingleAsync<int>(@"
+        SELECT COUNT(*) FROM ""Users""
+    ");
+
+    if (userCount == 0)
     {
         var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
         await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
@@ -167,10 +171,11 @@ using (var scope = app.Services.CreateScope())
     // Initialize default configuration
     try
     {
-        // Check if ServerConfigs table exists and has any records
-        var hasConfigs = await context.ServerConfigs.AnyAsync();
+        var configCount = await connection.QuerySingleAsync<int>(@"
+            SELECT COUNT(*) FROM ""ServerConfigs""
+        ");
 
-        if (!hasConfigs)
+        if (configCount == 0)
         {
             var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
 

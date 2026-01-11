@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
+using Dapper;
 using sins.Data;
 using sins.Models;
 
@@ -234,13 +234,17 @@ public class DnsServer : BackgroundService
     private async Task<byte[]?> GetCachedResponseAsync(string name, string type)
     {
         using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+        var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
 
         await _cacheLock.WaitAsync();
         try
         {
-            var cacheRecord = await context.CacheRecords
-                .FirstOrDefaultAsync(c => c.Name == name && c.Type == type && c.ExpiresAt > DateTime.UtcNow);
+            using var connection = databaseService.GetConnection();
+            var cacheRecord = await connection.QueryFirstOrDefaultAsync<CacheRecord>(@"
+                SELECT * FROM ""CacheRecords""
+                WHERE ""Name"" = @Name AND ""Type"" = @Type AND ""ExpiresAt"" > @Now
+                LIMIT 1
+            ", new { Name = name, Type = type, Now = DateTime.UtcNow });
 
             if (cacheRecord != null)
             {
@@ -258,10 +262,14 @@ public class DnsServer : BackgroundService
     private async Task<DnsRecord?> GetAuthoritativeResponseAsync(DnsMessage dnsMessage)
     {
         using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+        var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
 
-        var record = await context.DnsRecords
-                            .FirstOrDefaultAsync(r => r.Name == dnsMessage.Name && r.Type == dnsMessage.Type);
+        using var connection = databaseService.GetConnection();
+        var record = await connection.QueryFirstOrDefaultAsync<DnsRecord>(@"
+            SELECT * FROM ""DnsRecords""
+            WHERE ""Name"" = @Name AND ""Type"" = @Type
+            LIMIT 1
+        ", new { Name = dnsMessage.Name, Type = dnsMessage.Type });
 
         return record;
     }
@@ -326,19 +334,17 @@ public class DnsServer : BackgroundService
     private async Task CacheResponseAsync(string name, string type, byte[] response, string? upstreamServer, CancellationToken stoppingToken)
     {
         using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+        var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
 
         await _cacheLock.WaitAsync();
         try
         {
+            using var connection = databaseService.GetConnection();
             // Remove existing cache entry
-            var existing = await context.CacheRecords
-                .FirstOrDefaultAsync(c => c.Name == name && c.Type == type);
-
-            if (existing != null)
-            {
-                context.CacheRecords.Remove(existing);
-            }
+            await connection.ExecuteAsync(@"
+                DELETE FROM ""CacheRecords""
+                WHERE ""Name"" = @Name AND ""Type"" = @Type
+            ", new { Name = name, Type = type });
 
             // Get cache timeout from configuration
             var cacheTimeoutMinutes = 60; // Default value
@@ -352,18 +358,21 @@ public class DnsServer : BackgroundService
             }
 
             // Add new cache entry with configurable timeout
-            var cacheRecord = new CacheRecord
+            var cachedAt = DateTime.UtcNow;
+            var expiresAt = cachedAt.AddMinutes(cacheTimeoutMinutes);
+            
+            await connection.ExecuteAsync(@"
+                INSERT INTO ""CacheRecords"" (""Name"", ""Type"", ""Response"", ""CachedAt"", ""ExpiresAt"", ""UpstreamServer"")
+                VALUES (@Name, @Type, @Response, @CachedAt, @ExpiresAt, @UpstreamServer)
+            ", new
             {
                 Name = name,
                 Type = type,
                 Response = Convert.ToBase64String(response),
-                CachedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(cacheTimeoutMinutes),
+                CachedAt = cachedAt,
+                ExpiresAt = expiresAt,
                 UpstreamServer = upstreamServer
-            };
-
-            context.CacheRecords.Add(cacheRecord);
-            await context.SaveChangesAsync(stoppingToken);
+            });
         }
         finally
         {
@@ -378,17 +387,17 @@ public class DnsServer : BackgroundService
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+                var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
 
-                var expiredRecords = await context.CacheRecords
-                    .Where(c => c.ExpiresAt <= DateTime.UtcNow)
-                    .ToListAsync(stoppingToken);
+                using var connection = databaseService.GetConnection();
+                var count = await connection.ExecuteAsync(@"
+                    DELETE FROM ""CacheRecords""
+                    WHERE ""ExpiresAt"" <= @Now
+                ", new { Now = DateTime.UtcNow });
 
-                if (expiredRecords.Any())
+                if (count > 0)
                 {
-                    context.CacheRecords.RemoveRange(expiredRecords);
-                    await context.SaveChangesAsync(stoppingToken);
-                    _logger.LogInformation("Removed {Count} expired cache records", expiredRecords.Count);
+                    _logger.LogInformation("Removed {Count} expired cache records", count);
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);

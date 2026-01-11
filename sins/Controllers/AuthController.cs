@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using sins.Data;
 using sins.Services;
 using BCrypt.Net;
+using Dapper;
 
 namespace sins.Controllers;
 
@@ -12,12 +12,12 @@ namespace sins.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
-    private readonly DnsContext _context;
+    private readonly IDatabaseService _databaseService;
 
-    public AuthController(AuthService authService, DnsContext context)
+    public AuthController(AuthService authService, IDatabaseService databaseService)
     {
         _authService = authService;
-        _context = context;
+        _databaseService = databaseService;
     }
 
     [HttpPost("login")]
@@ -28,8 +28,12 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Username and password are required" });
         }
 
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
+        using var connection = _databaseService.GetConnection();
+        var user = await connection.QueryFirstOrDefaultAsync<sins.Models.User>(@"
+            SELECT * FROM ""Users""
+            WHERE ""Username"" = @Username AND ""IsActive"" = true
+            LIMIT 1
+        ", new { Username = request.Username });
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
@@ -74,17 +78,13 @@ public class AuthController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetUsers()
     {
-        var users = await _context.Users
-            .Where(u => u.IsActive)
-            .Select(u => new
-            {
-                u.Id,
-                u.Username,
-                u.Email,
-                u.Role,
-                u.CreatedAt
-            })
-            .ToListAsync();
+        using var connection = _databaseService.GetConnection();
+        var users = await connection.QueryAsync(@"
+            SELECT ""Id"", ""Username"", ""Email"", ""Role"", ""CreatedAt""
+            FROM ""Users""
+            WHERE ""IsActive"" = true
+            ORDER BY ""Username""
+        ");
 
         return Ok(users);
     }
@@ -93,15 +93,23 @@ public class AuthController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteUser(int id)
     {
-        var user = await _context.Users.FindAsync(id);
+        using var connection = _databaseService.GetConnection();
+        var exists = await connection.QueryFirstOrDefaultAsync<int?>(@"
+            SELECT ""Id"" FROM ""Users""
+            WHERE ""Id"" = @Id
+            LIMIT 1
+        ", new { Id = id });
 
-        if (user == null)
+        if (exists == null)
         {
             return NotFound();
         }
 
-        user.IsActive = false;
-        await _context.SaveChangesAsync();
+        await connection.ExecuteAsync(@"
+            UPDATE ""Users""
+            SET ""IsActive"" = false
+            WHERE ""Id"" = @Id
+        ", new { Id = id });
 
         return NoContent();
     }

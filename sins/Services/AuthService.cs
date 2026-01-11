@@ -1,28 +1,32 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using sins.Data;
 using sins.Models;
+using Dapper;
 
 namespace sins.Services;
 
 public class AuthService
 {
     private readonly IConfiguration _configuration;
-    private readonly DnsContext _context;
+    private readonly IDatabaseService _databaseService;
 
-    public AuthService(IConfiguration configuration, DnsContext context)
+    public AuthService(IConfiguration configuration, IDatabaseService databaseService)
     {
         _configuration = configuration;
-        _context = context;
+        _databaseService = databaseService;
     }
 
     public async Task<string?> AuthenticateAsync(string username, string password)
     {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+        using var connection = _databaseService.GetConnection();
+        var user = await connection.QueryFirstOrDefaultAsync<User>(@"
+            SELECT * FROM ""Users""
+            WHERE ""Username"" = @Username AND ""IsActive"" = true
+            LIMIT 1
+        ", new { Username = username });
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
@@ -34,23 +38,31 @@ public class AuthService
 
     public async Task<bool> CreateUserAsync(string username, string password, string email, string role = "User")
     {
-        if (await _context.Users.AnyAsync(u => u.Username == username || u.Email == email))
+        using var connection = _databaseService.GetConnection();
+        var exists = await connection.QueryFirstOrDefaultAsync<int?>(@"
+            SELECT ""Id"" FROM ""Users""
+            WHERE ""Username"" = @Username OR ""Email"" = @Email
+            LIMIT 1
+        ", new { Username = username, Email = email });
+
+        if (exists != null)
         {
             return false;
         }
 
-        var user = new User
+        var createdAt = DateTime.UtcNow;
+        await connection.ExecuteAsync(@"
+            INSERT INTO ""Users"" (""Username"", ""PasswordHash"", ""Email"", ""Role"", ""CreatedAt"", ""IsActive"")
+            VALUES (@Username, @PasswordHash, @Email, @Role, @CreatedAt, @IsActive)
+        ", new
         {
             Username = username,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             Email = email,
             Role = role,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = createdAt,
             IsActive = true
-        };
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        });
 
         return true;
     }
