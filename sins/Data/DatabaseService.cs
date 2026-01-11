@@ -31,7 +31,14 @@ public class DatabaseService : IDatabaseService
     public async Task EnsureTablesCreatedAsync()
     {
         using var connection = GetConnection();
-        await connection.OpenAsync();
+        if (connection is NpgsqlConnection npgsqlConnection)
+        {
+            await npgsqlConnection.OpenAsync();
+        }
+        else
+        {
+            connection.Open();
+        }
 
         // Create DnsRecords table
         var dnsRecordsTable = @"

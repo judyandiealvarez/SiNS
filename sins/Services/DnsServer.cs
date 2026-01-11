@@ -303,8 +303,7 @@ public class DnsServer : BackgroundService
         client.Client.SendTimeout = 5000;
 
         // Handle both IPv4 and IPv6 addresses
-        IPAddress ipAddress;
-        if (!IPAddress.TryParse(server, out ipAddress))
+        if (!IPAddress.TryParse(server, out IPAddress? ipAddress) || ipAddress == null)
         {
             _logger.LogWarning("Invalid IP address format: {Server}", server);
             return null;
