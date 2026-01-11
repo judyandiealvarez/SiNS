@@ -150,46 +150,55 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Ensure database is created and initialize default configuration
-using (var scope = app.Services.CreateScope())
+try
 {
-    var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
-    await databaseService.EnsureTablesCreatedAsync();
-
-    // Create default admin user if no users exist
-    using var connection = databaseService.GetConnection();
-    var userCount = await connection.QuerySingleAsync<int>(@"
-        SELECT COUNT(*) FROM ""Users""
-    ");
-
-    if (userCount == 0)
+    using (var scope = app.Services.CreateScope())
     {
-        var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
-        await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
-        Console.WriteLine("Default admin user created: admin / admin123");
-    }
+        var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+        await databaseService.EnsureTablesCreatedAsync();
 
-    // Initialize default configuration
-    try
-    {
-        var configCount = await connection.QuerySingleAsync<int>(@"
-            SELECT COUNT(*) FROM ""ServerConfigs""
+        // Create default admin user if no users exist
+        using var connection = databaseService.GetConnection();
+        var userCount = await connection.QuerySingleAsync<int>(@"
+            SELECT COUNT(*) FROM ""Users""
         ");
 
-        if (configCount == 0)
+        if (userCount == 0)
         {
-            var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
+            var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+            await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
+            Console.WriteLine("Default admin user created: admin / admin123");
+        }
 
-            await configService.SetValueAsync("CacheTimeoutMinutes", "60", "System");
-            await configService.SetValueAsync("UdpPort", "53", "System");
-            await configService.SetValueAsync("TcpPort", "53", "System");
-            await configService.SetValueAsync("UpstreamServers", "8.8.8.8,1.1.1.1,8.8.4.4", "System");
-            Console.WriteLine("Default configuration initialized");
+        // Initialize default configuration
+        try
+        {
+            var configCount = await connection.QuerySingleAsync<int>(@"
+                SELECT COUNT(*) FROM ""ServerConfigs""
+            ");
+
+            if (configCount == 0)
+            {
+                var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
+
+                await configService.SetValueAsync("CacheTimeoutMinutes", "60", "System");
+                await configService.SetValueAsync("UdpPort", "53", "System");
+                await configService.SetValueAsync("TcpPort", "53", "System");
+                await configService.SetValueAsync("UpstreamServers", "8.8.8.8,1.1.1.1,8.8.4.4", "System");
+                Console.WriteLine("Default configuration initialized");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not initialize configuration: {ex.Message}");
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Warning: Could not initialize configuration: {ex.Message}");
-    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"ERROR: Failed to initialize database: {ex.Message}");
+    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+    Console.WriteLine("Application will continue but may not function correctly without database access.");
 }
 
 app.Run();
