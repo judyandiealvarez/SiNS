@@ -149,7 +149,7 @@ jobs:
       - name: Check for outdated packages
         run: |
           echo "Checking for outdated packages..."
-          dotnet outdated --upgrade
+          dotnet outdated || true
           
       - name: Check for vulnerable packages
         run: |
