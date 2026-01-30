@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using sins.Data;
 using sins.Models;
 using sins.Services;
 using Microsoft.Extensions.Logging;
-using Dapper;
-using System.Data;
-using Npgsql;
 
 namespace sins.Controllers;
 
@@ -15,13 +13,13 @@ namespace sins.Controllers;
 [Authorize]
 public class DnsController : ControllerBase
 {
-    private readonly IDatabaseService _databaseService;
+    private readonly DnsContext _context;
     private readonly IConfigurationService _configService;
     private readonly ILogger<DnsController> _logger;
 
-    public DnsController(IDatabaseService databaseService, IConfigurationService configService, ILogger<DnsController> logger)
+    public DnsController(DnsContext context, IConfigurationService configService, ILogger<DnsController> logger)
     {
-        _databaseService = databaseService;
+        _context = context;
         _configService = configService;
         _logger = logger;
         _logger.LogInformation("[DEBUG] DnsController constructor called");
@@ -30,11 +28,10 @@ public class DnsController : ControllerBase
     [HttpGet("records")]
     public async Task<IActionResult> GetRecords()
     {
-        using var connection = _databaseService.GetConnection();
-        var records = await connection.QueryAsync<DnsRecord>(@"
-            SELECT * FROM ""DnsRecords""
-            ORDER BY ""Name"", ""Type""
-        ");
+        var records = await _context.DnsRecords
+            .OrderBy(r => r.Name)
+            .ThenBy(r => r.Type)
+            .ToListAsync();
 
         return Ok(records);
     }
@@ -44,11 +41,7 @@ public class DnsController : ControllerBase
     [HttpGet("records/{id}")]
     public async Task<IActionResult> GetRecord(int id)
     {
-        using var connection = _databaseService.GetConnection();
-        var record = await connection.QueryFirstOrDefaultAsync<DnsRecord>(@"
-            SELECT * FROM ""DnsRecords""
-            WHERE ""Id"" = @Id
-        ", new { Id = id });
+        var record = await _context.DnsRecords.FindAsync(id);
 
         if (record == null)
         {
@@ -90,21 +83,20 @@ public class DnsController : ControllerBase
 
         try
         {
-            _logger.LogInformation($"[DEBUG] Adding record to database");
-            using var connection = _databaseService.GetConnection();
-            var id = await connection.QuerySingleAsync<int>(@"
-                INSERT INTO ""DnsRecords"" (""Name"", ""Type"", ""Value"", ""Ttl"", ""CreatedAt"", ""UpdatedAt"")
-                VALUES (@Name, @Type, @Value, @Ttl, @CreatedAt, @UpdatedAt)
-                RETURNING ""Id""
-            ", record);
-            record.Id = id;
+            _logger.LogInformation($"[DEBUG] Adding record to context");
+            _context.DnsRecords.Add(record);
+            _logger.LogInformation($"[DEBUG] Saving changes to database");
+            await _context.SaveChangesAsync();
             _logger.LogInformation($"[DEBUG] Record created successfully with ID: {record.Id}");
             return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
         }
-        catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505") // Unique violation
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            _logger.LogError($"[DEBUG] PostgresException: {ex.Message}");
-            if (ex.ConstraintName == "DnsRecords_Name_Type_key")
+            _logger.LogError($"[DEBUG] DbUpdateException: {ex.Message}");
+            _logger.LogError($"[DEBUG] InnerException: {ex.InnerException?.Message}");
+
+            if (ex.InnerException?.Message?.Contains("duplicate key") == true ||
+                ex.InnerException?.Message?.Contains("IX_DnsRecords_Name_Type") == true)
             {
                 _logger.LogWarning($"[DEBUG] Duplicate key detected for {request.Name} ({request.Type})");
                 return BadRequest(new { message = $"A DNS record with name '{request.Name}' and type '{request.Type}' already exists." });
@@ -124,36 +116,20 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateRecord(int id, [FromBody] UpdateDnsRecordRequest request)
     {
-        using var connection = _databaseService.GetConnection();
-        var existing = await connection.QueryFirstOrDefaultAsync<DnsRecord>(@"
-            SELECT * FROM ""DnsRecords""
-            WHERE ""Id"" = @Id
-        ", new { Id = id });
+        var record = await _context.DnsRecords.FindAsync(id);
 
-        if (existing == null)
+        if (record == null)
         {
             return NotFound();
         }
 
-        var updatedAt = DateTime.UtcNow;
-        await connection.ExecuteAsync(@"
-            UPDATE ""DnsRecords""
-            SET ""Name"" = @Name, ""Type"" = @Type, ""Value"" = @Value, ""Ttl"" = @Ttl, ""UpdatedAt"" = @UpdatedAt
-            WHERE ""Id"" = @Id
-        ", new
-        {
-            Id = id,
-            Name = request.Name,
-            Type = request.Type.ToUpper(),
-            Value = request.Value,
-            Ttl = request.Ttl,
-            UpdatedAt = updatedAt
-        });
+        record.Name = request.Name;
+        record.Type = request.Type.ToUpper();
+        record.Value = request.Value;
+        record.Ttl = request.Ttl;
+        record.UpdatedAt = DateTime.UtcNow;
 
-        var record = await connection.QueryFirstOrDefaultAsync<DnsRecord>(@"
-            SELECT * FROM ""DnsRecords""
-            WHERE ""Id"" = @Id
-        ", new { Id = id });
+        await _context.SaveChangesAsync();
 
         return Ok(record);
     }
@@ -162,16 +138,16 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteRecord(int id)
     {
-        using var connection = _databaseService.GetConnection();
-        var deleted = await connection.ExecuteAsync(@"
-            DELETE FROM ""DnsRecords""
-            WHERE ""Id"" = @Id
-        ", new { Id = id });
+        var record = await _context.DnsRecords.FindAsync(id);
 
-        if (deleted == 0)
+        if (record == null)
         {
             return NotFound();
         }
+
+        // Real delete - remove the record from database
+        _context.DnsRecords.Remove(record);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
@@ -179,12 +155,11 @@ public class DnsController : ControllerBase
     [HttpGet("cache")]
     public async Task<IActionResult> GetCache()
     {
-        using var connection = _databaseService.GetConnection();
-        var cacheRecords = await connection.QueryAsync<CacheRecord>(@"
-            SELECT * FROM ""CacheRecords""
-            WHERE ""ExpiresAt"" > @Now
-            ORDER BY ""Name"", ""Type""
-        ", new { Now = DateTime.UtcNow });
+        var cacheRecords = await _context.CacheRecords
+            .Where(c => c.ExpiresAt > DateTime.UtcNow)
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Type)
+            .ToListAsync();
 
         return Ok(cacheRecords);
     }
@@ -192,12 +167,11 @@ public class DnsController : ControllerBase
     [HttpGet("cache/details")]
     public async Task<IActionResult> GetCacheDetails()
     {
-        using var connection = _databaseService.GetConnection();
-        var cacheRecords = await connection.QueryAsync<CacheRecord>(@"
-            SELECT * FROM ""CacheRecords""
-            WHERE ""ExpiresAt"" > @Now
-            ORDER BY ""Name"", ""Type""
-        ", new { Now = DateTime.UtcNow });
+        var cacheRecords = await _context.CacheRecords
+            .Where(c => c.ExpiresAt > DateTime.UtcNow)
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Type)
+            .ToListAsync();
 
         var detailedRecords = new List<object>();
 
@@ -312,46 +286,34 @@ public class DnsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ClearAllCache()
     {
-        using var connection = _databaseService.GetConnection();
-        var count = await connection.ExecuteAsync(@"
-            DELETE FROM ""CacheRecords""
-        ");
+        var allRecords = await _context.CacheRecords.ToListAsync();
 
-        return Ok(new { message = $"Cleared all {count} cache records" });
+        _context.CacheRecords.RemoveRange(allRecords);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = $"Cleared all {allRecords.Count} cache records" });
     }
 
     [HttpDelete("cache/expired")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ClearExpiredCache()
     {
-        using var connection = _databaseService.GetConnection();
-        var count = await connection.ExecuteAsync(@"
-            DELETE FROM ""CacheRecords""
-            WHERE ""ExpiresAt"" <= @Now
-        ", new { Now = DateTime.UtcNow });
+        var expiredRecords = await _context.CacheRecords
+            .Where(c => c.ExpiresAt <= DateTime.UtcNow)
+            .ToListAsync();
 
-        return Ok(new { message = $"Cleared {count} expired cache records" });
+        _context.CacheRecords.RemoveRange(expiredRecords);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = $"Cleared {expiredRecords.Count} expired cache records" });
     }
 
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        using var connection = _databaseService.GetConnection();
-        var now = DateTime.UtcNow;
-        
-        var totalRecords = await connection.QuerySingleAsync<int>(@"
-            SELECT COUNT(*) FROM ""DnsRecords""
-        ");
-        
-        var totalCacheRecords = await connection.QuerySingleAsync<int>(@"
-            SELECT COUNT(*) FROM ""CacheRecords""
-            WHERE ""ExpiresAt"" > @Now
-        ", new { Now = now });
-        
-        var expiredCacheRecords = await connection.QuerySingleAsync<int>(@"
-            SELECT COUNT(*) FROM ""CacheRecords""
-            WHERE ""ExpiresAt"" <= @Now
-        ", new { Now = now });
+        var totalRecords = await _context.DnsRecords.CountAsync();
+        var totalCacheRecords = await _context.CacheRecords.CountAsync(c => c.ExpiresAt > DateTime.UtcNow);
+        var expiredCacheRecords = await _context.CacheRecords.CountAsync(c => c.ExpiresAt <= DateTime.UtcNow);
 
         return Ok(new
         {

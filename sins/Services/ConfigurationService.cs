@@ -1,6 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using sins.Data;
 using sins.Models;
-using Dapper;
 
 namespace sins.Services;
 
@@ -15,13 +15,13 @@ public interface IConfigurationService
 
 public class ConfigurationService : IConfigurationService
 {
-    private readonly IDatabaseService _databaseService;
+    private readonly DnsContext _context;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public ConfigurationService(IDatabaseService databaseService, ILogger<ConfigurationService> logger)
+    public ConfigurationService(DnsContext context, ILogger<ConfigurationService> logger)
     {
-        _databaseService = databaseService;
+        _context = context;
         _logger = logger;
     }
 
@@ -30,12 +30,7 @@ public class ConfigurationService : IConfigurationService
         await _lock.WaitAsync();
         try
         {
-            using var connection = _databaseService.GetConnection();
-            var config = await connection.QueryFirstOrDefaultAsync<ServerConfig>(@"
-                SELECT * FROM ""ServerConfigs""
-                WHERE ""Key"" = @Key
-                LIMIT 1
-            ", new { Key = key });
+            var config = await _context.ServerConfigs.FirstOrDefaultAsync(c => c.Key == key);
             return config?.Value ?? defaultValue;
         }
         finally
@@ -49,31 +44,27 @@ public class ConfigurationService : IConfigurationService
         await _lock.WaitAsync();
         try
         {
-            using var connection = _databaseService.GetConnection();
-            var exists = await connection.QueryFirstOrDefaultAsync<string>(@"
-                SELECT ""Key"" FROM ""ServerConfigs""
-                WHERE ""Key"" = @Key
-                LIMIT 1
-            ", new { Key = key });
+            var config = await _context.ServerConfigs.FirstOrDefaultAsync(c => c.Key == key);
 
-            var updatedAt = DateTime.UtcNow;
-
-            if (exists == null)
+            if (config == null)
             {
-                await connection.ExecuteAsync(@"
-                    INSERT INTO ""ServerConfigs"" (""Key"", ""Value"", ""UpdatedAt"", ""UpdatedBy"")
-                    VALUES (@Key, @Value, @UpdatedAt, @UpdatedBy)
-                ", new { Key = key, Value = value, UpdatedAt = updatedAt, UpdatedBy = updatedBy });
+                config = new ServerConfig
+                {
+                    Key = key,
+                    Value = value,
+                    UpdatedAt = DateTime.UtcNow,
+                    UpdatedBy = updatedBy
+                };
+                _context.ServerConfigs.Add(config);
             }
             else
             {
-                await connection.ExecuteAsync(@"
-                    UPDATE ""ServerConfigs""
-                    SET ""Value"" = @Value, ""UpdatedAt"" = @UpdatedAt, ""UpdatedBy"" = @UpdatedBy
-                    WHERE ""Key"" = @Key
-                ", new { Key = key, Value = value, UpdatedAt = updatedAt, UpdatedBy = updatedBy });
+                config.Value = value;
+                config.UpdatedAt = DateTime.UtcNow;
+                config.UpdatedBy = updatedBy;
             }
 
+            await _context.SaveChangesAsync();
             _logger.LogInformation("Configuration updated: {Key} = {Value} by {UpdatedBy}", key, value, updatedBy);
         }
         finally

@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using sins.Data;
 using sins.Services;
 using System.Text;
-using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,8 +91,9 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure Database Service
-builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
+// Configure Entity Framework
+builder.Services.AddDbContext<DnsContext>(options =>
+    options.UseNpgsql(connectionString ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.")));
 
 // Configure Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -154,16 +155,11 @@ try
 {
     using (var scope = app.Services.CreateScope())
     {
-        var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
-        await databaseService.EnsureTablesCreatedAsync();
+        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+        context.Database.EnsureCreated();
 
         // Create default admin user if no users exist
-        using var connection = databaseService.GetConnection();
-        var userCount = await connection.QuerySingleAsync<int>(@"
-            SELECT COUNT(*) FROM ""Users""
-        ");
-
-        if (userCount == 0)
+        if (!context.Users.Any())
         {
             var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
             await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
@@ -173,11 +169,10 @@ try
         // Initialize default configuration
         try
         {
-            var configCount = await connection.QuerySingleAsync<int>(@"
-                SELECT COUNT(*) FROM ""ServerConfigs""
-            ");
+            // Check if ServerConfigs table exists and has any records
+            var hasConfigs = await context.ServerConfigs.AnyAsync();
 
-            if (configCount == 0)
+            if (!hasConfigs)
             {
                 var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
 
