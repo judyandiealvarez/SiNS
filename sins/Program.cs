@@ -155,11 +155,11 @@ try
 {
     using (var scope = app.Services.CreateScope())
     {
-        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
-        context.Database.EnsureCreated();
+    var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+    context.Database.EnsureCreated();
 
-        // Create default admin user if no users exist
-        if (!context.Users.Any())
+    // Create default admin user if no users exist
+    if (!context.Users.Any())
         {
             var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
             await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
