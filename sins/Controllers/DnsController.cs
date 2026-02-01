@@ -326,9 +326,53 @@ public class DnsController : ControllerBase
 
     [HttpGet("health")]
     [AllowAnonymous]
-    public IActionResult HealthCheck()
+    public async Task<IActionResult> HealthCheck()
     {
-        return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+        try
+        {
+            // Check database connectivity
+            var canConnect = await _context.Database.CanConnectAsync();
+            if (!canConnect)
+            {
+                _logger.LogWarning("Health check failed: Database connection unavailable");
+                return StatusCode(503, new { 
+                    status = "unhealthy", 
+                    reason = "database_connection_failed",
+                    timestamp = DateTime.UtcNow 
+                });
+            }
+
+            // Verify required tables exist by attempting to query them
+            // This will throw if tables don't exist
+            var dnsRecordsCount = await _context.DnsRecords.CountAsync();
+            var cacheRecordsCount = await _context.CacheRecords.CountAsync();
+            var usersCount = await _context.Users.CountAsync();
+            var serverConfigsCount = await _context.ServerConfigs.CountAsync();
+
+            return Ok(new { 
+                status = "healthy", 
+                timestamp = DateTime.UtcNow,
+                database = new {
+                    connected = true,
+                    tables = new {
+                        DnsRecords = dnsRecordsCount,
+                        CacheRecords = cacheRecordsCount,
+                        Users = usersCount,
+                        ServerConfigs = serverConfigsCount
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Health check failed: {Message}", ex.Message);
+            return StatusCode(503, new { 
+                status = "unhealthy", 
+                reason = "database_error",
+                error = ex.Message,
+                timestamp = DateTime.UtcNow 
+            });
+        }
     }
 
     [HttpGet("config")]
