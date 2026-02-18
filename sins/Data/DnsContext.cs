@@ -13,6 +13,7 @@ public class DnsContext : DbContext
     public DbSet<CacheRecord> CacheRecords { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<ServerConfig> ServerConfigs { get; set; }
+    public DbSet<DomainUpstreamMapping> DomainUpstreamMappings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,14 @@ public class DnsContext : DbContext
             entity.Property(e => e.Value).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
             entity.Property(e => e.UpdatedBy).IsRequired();
+        });
+
+        modelBuilder.Entity<DomainUpstreamMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Domain).IsUnique();
+            entity.Property(e => e.Domain).IsRequired();
+            entity.Property(e => e.UpstreamServer).IsRequired();
         });
     }
 }

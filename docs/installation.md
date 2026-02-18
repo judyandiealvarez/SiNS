@@ -8,6 +8,7 @@ This guide covers installing the DNS server in various environments, from develo
 - [Production Installation](#production-installation)
 - [Development Installation](#development-installation)
 - [Manual Installation](#manual-installation)
+- [Kubernetes Deployment](#kubernetes-deployment)
 - [Post-Installation](#post-installation)
 - [Troubleshooting](#troubleshooting)
 
@@ -314,6 +315,57 @@ dotnet ef database update
 # Run application
 dotnet run
 ```
+
+## Kubernetes Deployment
+
+When running SiNS inside a Kubernetes cluster, you can enable **Ingress-backed DNS resolution**: the server checks all Ingress resources in all namespaces and, if the requested DNS name matches any Ingress host, responds with a configurable **HAProxy IP** (A record). This is useful when HAProxy fronts the cluster and clients need to resolve ingress hostnames to the HAProxy address.
+
+### HAPROXY setting
+
+- **Environment variable (at install/startup)**: Set `HAPROXY` to the IPv4 address of your HAProxy (e.g. `10.0.0.5`). The app will persist this in its configuration and use it for the ingress lookup path.
+- **API**: You can also get or set the value via `GET /api/dns/config` and `POST /api/dns/config` (request body: `{ "Haproxy": "10.0.0.5" }`). Use an empty string to clear.
+
+When `Haproxy` is set and a DNS query is for type **A**, the server lists all Ingress hosts from the cluster; if the requested name matches any host, it returns the Haproxy IP with TTL 60. Otherwise resolution continues as usual (authoritative DB, upstream, NXDOMAIN).
+
+### RBAC (list Ingress in all namespaces)
+
+The pod must be allowed to list Ingress resources across all namespaces. Create a ClusterRole and bind it to the ServiceAccount used by the SiNS deployment.
+
+```yaml
+# ClusterRole: allow listing/reading Ingress in all namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sins-ingress-reader
+rules:
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["list", "get"]
+---
+# ClusterRoleBinding: bind to the SiNS app ServiceAccount (adjust namespace and serviceAccountName)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sins-ingress-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sins-ingress-reader
+subjects:
+  - kind: ServiceAccount
+    name: sins          # ServiceAccount name used by your SiNS deployment
+    namespace: default  # namespace where SiNS runs
+```
+
+Apply these before or with your SiNS Deployment so the in-cluster Kubernetes client can call the API server.
+
+### Domain → upstream mapping (k3s / any deployment)
+
+You can map domains to dedicated upstream DNS servers so that queries for names under that domain (e.g. `some.dev.net` for domain `dev.net`) are sent to that upstream and the response is cached.
+
+- **Environment variable at startup**: Set `DOMAIN_UPSTREAM_MAPPINGS` to a comma-separated list of `domain=upstream` pairs. Example: `DOMAIN_UPSTREAM_MAPPINGS=dev.net=10.11.4.17,test.net=10.11.3.17,prod.net=10.11.2.17`. Existing mappings with the same domain are updated; new domains are added.
+- **UI**: Settings → "Domain → Upstream mapping" table: add, edit, or remove mappings.
+- **API**: `GET /api/dns/domain-upstreams`, `POST /api/dns/domain-upstreams`, `PUT /api/dns/domain-upstreams/{id}`, `DELETE /api/dns/domain-upstreams/{id}`.
 
 ## Post-Installation
 

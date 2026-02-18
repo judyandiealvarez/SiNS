@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using sins.Data;
+using sins.Models;
 using sins.Services;
 using System.Text;
 
@@ -117,6 +118,7 @@ builder.Services.AddAuthorization();
 // Register services
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
+builder.Services.AddSingleton<IIngressHostResolver, KubernetesIngressHostResolver>();
 builder.Services.AddHostedService<DnsServer>();
 
 // Configure CORS
@@ -180,7 +182,57 @@ try
                 await configService.SetValueAsync("UdpPort", "53", "System");
                 await configService.SetValueAsync("TcpPort", "53", "System");
                 await configService.SetValueAsync("UpstreamServers", "8.8.8.8,1.1.1.1,8.8.4.4", "System");
+                var haproxyEnv = Environment.GetEnvironmentVariable("HAPROXY");
+                if (!string.IsNullOrWhiteSpace(haproxyEnv))
+                {
+                    await configService.SetValueAsync("Haproxy", haproxyEnv.Trim(), "System");
+                    Console.WriteLine("[Configuration] Haproxy set from HAPROXY environment variable");
+                }
                 Console.WriteLine("Default configuration initialized");
+            }
+            else
+            {
+                // When config already exists, still allow HAPROXY env to override at startup (e.g. install/upgrade)
+                var haproxyEnv = Environment.GetEnvironmentVariable("HAPROXY");
+                if (!string.IsNullOrWhiteSpace(haproxyEnv))
+                {
+                    var configService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
+                    await configService.SetValueAsync("Haproxy", haproxyEnv.Trim(), "System");
+                    Console.WriteLine("[Configuration] Haproxy updated from HAPROXY environment variable");
+                }
+            }
+
+            // Domain -> upstream mappings from env (e.g. k3s startup). Format: dev.net=10.11.4.17,test.net=10.11.3.17
+            var domainMappingsEnv = Environment.GetEnvironmentVariable("DOMAIN_UPSTREAM_MAPPINGS");
+            if (!string.IsNullOrWhiteSpace(domainMappingsEnv))
+            {
+                foreach (var pair in domainMappingsEnv.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var eq = pair.IndexOf('=');
+                    if (eq <= 0 || eq == pair.Length - 1) continue;
+                    var domain = pair.Substring(0, eq).Trim().TrimEnd('.').ToLowerInvariant();
+                    var upstream = pair.Substring(eq + 1).Trim();
+                    if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(upstream)) continue;
+
+                    var existing = await context.DomainUpstreamMappings.FirstOrDefaultAsync(m => m.Domain == domain);
+                    if (existing != null)
+                    {
+                        existing.UpstreamServer = upstream;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        context.DomainUpstreamMappings.Add(new DomainUpstreamMapping
+                        {
+                            Domain = domain,
+                            UpstreamServer = upstream,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
+                Console.WriteLine("[Configuration] Domain upstream mappings updated from DOMAIN_UPSTREAM_MAPPINGS");
             }
         }
         catch (Exception ex)

@@ -382,13 +382,15 @@ public class DnsController : ControllerBase
         var upstreamServers = await _configService.GetStringArrayValueAsync("UpstreamServers", new[] { "8.8.8.8", "1.1.1.1" });
         var udpPort = await _configService.GetIntValueAsync("UdpPort", 53);
         var tcpPort = await _configService.GetIntValueAsync("TcpPort", 53);
+        var haproxy = await _configService.GetValueAsync("Haproxy", null);
 
         return Ok(new
         {
             CacheTimeoutMinutes = cacheTimeoutMinutes,
             UpstreamServers = upstreamServers,
             UdpPort = udpPort,
-            TcpPort = tcpPort
+            TcpPort = tcpPort,
+            Haproxy = haproxy
         });
     }
 
@@ -421,12 +423,90 @@ public class DnsController : ControllerBase
                 await _configService.SetValueAsync("UpstreamServers", upstreamServersString, username);
             }
 
+            if (request.Haproxy != null)
+            {
+                await _configService.SetValueAsync("Haproxy", request.Haproxy, username);
+            }
+
             return Ok(new { message = "Configuration updated successfully. Changes will take effect immediately." });
         }
         catch (Exception ex)
         {
             return BadRequest(new { message = $"Error updating configuration: {ex.Message}" });
         }
+    }
+
+    [HttpGet("domain-upstreams")]
+    public async Task<IActionResult> GetDomainUpstreamMappings()
+    {
+        var list = await _context.DomainUpstreamMappings
+            .OrderBy(m => m.Domain)
+            .ToListAsync();
+        return Ok(list);
+    }
+
+    [HttpPost("domain-upstreams")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateDomainUpstreamMapping([FromBody] DomainUpstreamMappingRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Domain) || string.IsNullOrWhiteSpace(request.UpstreamServer))
+            return BadRequest(new { message = "Domain and UpstreamServer are required" });
+
+        var domain = request.Domain.Trim().TrimEnd('.').ToLowerInvariant();
+        var upstream = request.UpstreamServer.Trim();
+
+        var existing = await _context.DomainUpstreamMappings.FirstOrDefaultAsync(m => m.Domain == domain);
+        if (existing != null)
+            return BadRequest(new { message = $"A mapping for domain '{domain}' already exists. Use PUT to update." });
+
+        var mapping = new DomainUpstreamMapping
+        {
+            Domain = domain,
+            UpstreamServer = upstream,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.DomainUpstreamMappings.Add(mapping);
+        await _context.SaveChangesAsync();
+        return Created($"/api/dns/domain-upstreams/{mapping.Id}", mapping);
+    }
+
+    [HttpPut("domain-upstreams/{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateDomainUpstreamMapping(int id, [FromBody] DomainUpstreamMappingRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Domain) || string.IsNullOrWhiteSpace(request.UpstreamServer))
+            return BadRequest(new { message = "Domain and UpstreamServer are required" });
+
+        var mapping = await _context.DomainUpstreamMappings.FindAsync(id);
+        if (mapping == null)
+            return NotFound();
+
+        var domain = request.Domain.Trim().TrimEnd('.').ToLowerInvariant();
+        var upstream = request.UpstreamServer.Trim();
+
+        var existingOther = await _context.DomainUpstreamMappings.FirstOrDefaultAsync(m => m.Domain == domain && m.Id != id);
+        if (existingOther != null)
+            return BadRequest(new { message = $"A mapping for domain '{domain}' already exists (id {existingOther.Id})." });
+
+        mapping.Domain = domain;
+        mapping.UpstreamServer = upstream;
+        mapping.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(mapping);
+    }
+
+    [HttpDelete("domain-upstreams/{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteDomainUpstreamMapping(int id)
+    {
+        var mapping = await _context.DomainUpstreamMappings.FindAsync(id);
+        if (mapping == null)
+            return NotFound();
+
+        _context.DomainUpstreamMappings.Remove(mapping);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpGet("version")]
@@ -462,5 +542,12 @@ public class ConfigUpdateRequest
     public string[]? UpstreamServers { get; set; }
     public int? UdpPort { get; set; }
     public int? TcpPort { get; set; }
+    /// <summary>HAProxy IP for Kubernetes ingress-backed DNS. Set to empty string to clear.</summary>
+    public string? Haproxy { get; set; }
 }
-// Trigger new deployment
+
+public class DomainUpstreamMappingRequest
+{
+    public string Domain { get; set; } = string.Empty;
+    public string UpstreamServer { get; set; } = string.Empty;
+}

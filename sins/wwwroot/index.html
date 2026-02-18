@@ -342,10 +342,43 @@
                                                 <label class="form-label">Upstream DNS Servers</label>
                                                 <textarea class="form-control" v-model="upstreamServersText" rows="3" 
                                                           placeholder="8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
-                                                <div class="form-text">One server per line</div>
+                                                <div class="form-text">One server per line (default for names with no domain mapping)</div>
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-primary" :disabled="loading">
+                                        <hr class="my-4">
+                                        <h5 class="mb-3"><i class="fas fa-project-diagram me-2"></i>Domain → Upstream mapping</h5>
+                                        <p class="text-muted small">Queries for a name that matches a domain (e.g. <code>some.dev.net</code> for domain <code>dev.net</code>) are sent to that domain’s upstream and the result is cached.</p>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="text-muted">e.g. dev.net → 10.11.4.17, test.net → 10.11.3.17</span>
+                                            <button type="button" @click="openAddDomainMappingModal" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-plus me-1"></i>Add mapping
+                                            </button>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Domain</th>
+                                                        <th>Upstream server</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr v-for="m in domainUpstreamMappings" :key="m.id">
+                                                        <td><code>{{ m.domain }}</code></td>
+                                                        <td>{{ m.upstreamServer }}</td>
+                                                        <td>
+                                                            <button type="button" @click="editDomainMapping(m)" class="btn btn-sm btn-outline-primary me-1"><i class="fas fa-edit"></i></button>
+                                                            <button type="button" @click="deleteDomainMapping(m.id)" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                        </td>
+                                                    </tr>
+                                                    <tr v-if="domainUpstreamMappings.length === 0">
+                                                        <td colspan="3" class="text-muted">No domain mappings. Use env <code>DOMAIN_UPSTREAM_MAPPINGS</code> at startup or add below.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary mt-3" :disabled="loading">
                                             <span v-if="loading" class="loading me-2"></span>
                                             <i v-else class="fas fa-save me-2"></i>
                                             {{ loading ? 'Saving...' : 'Save Settings' }}
@@ -519,6 +552,60 @@
                     <div class="modal-footer">
                         <button @click="showAddUserModal = false" class="btn btn-secondary">Cancel</button>
                         <button @click="addUser" class="btn btn-primary">Add User</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Domain → Upstream mapping Modal -->
+        <div v-if="showAddDomainMappingModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add domain → upstream mapping</h5>
+                        <button @click="closeAddDomainMappingModal" class="btn-close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="error" class="alert alert-danger mb-3">{{ error }}</div>
+                        <div class="mb-3">
+                            <label class="form-label">Domain</label>
+                            <input type="text" class="form-control" v-model="newDomainMapping.domain" placeholder="dev.net" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Upstream server</label>
+                            <input type="text" class="form-control" v-model="newDomainMapping.upstreamServer" placeholder="10.11.4.17" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button @click="closeAddDomainMappingModal" class="btn btn-secondary">Cancel</button>
+                        <button @click="submitAddDomainMapping" class="btn btn-primary">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Domain → Upstream mapping Modal -->
+        <div v-if="showEditDomainMappingModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit domain → upstream mapping</h5>
+                        <button @click="closeEditDomainMappingModal" class="btn-close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="error" class="alert alert-danger mb-3">{{ error }}</div>
+                        <div class="mb-3">
+                            <label class="form-label">Domain</label>
+                            <input type="text" class="form-control" v-model="editingDomainMapping.domain" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Upstream server</label>
+                            <input type="text" class="form-control" v-model="editingDomainMapping.upstreamServer" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button @click="closeEditDomainMappingModal" class="btn btn-secondary">Cancel</button>
+                        <button @click="submitEditDomainMapping" class="btn btn-primary">Update</button>
                     </div>
                 </div>
             </div>

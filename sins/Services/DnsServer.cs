@@ -12,18 +12,22 @@ public class DnsServer : BackgroundService
     private readonly ILogger<DnsServer> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IConfigurationService _configService;
+    private readonly IIngressHostResolver _ingressHostResolver;
     private readonly UdpClient _udpClient;
     private readonly TcpListener _tcpListener;
     private int _udpPort;
     private int _tcpPort;
     private string[] _upstreamServers;
+    private string? _haproxyIp;
+    private List<(string Domain, string UpstreamServer)> _domainUpstreamMappings = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
-    public DnsServer(ILogger<DnsServer> logger, IServiceProvider serviceProvider, IConfigurationService configService)
+    public DnsServer(ILogger<DnsServer> logger, IServiceProvider serviceProvider, IConfigurationService configService, IIngressHostResolver ingressHostResolver)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
         _configService = configService;
+        _ingressHostResolver = ingressHostResolver;
 
         // Initialize with default values, will be updated in ExecuteAsync
         _udpPort = 53;
@@ -73,9 +77,22 @@ public class DnsServer : BackgroundService
             _udpPort = await _configService.GetIntValueAsync("UdpPort", 53);
             _tcpPort = await _configService.GetIntValueAsync("TcpPort", 53);
             _upstreamServers = await _configService.GetStringArrayValueAsync("UpstreamServers", new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" });
+            var haproxy = await _configService.GetValueAsync("Haproxy", null);
+            _haproxyIp = string.IsNullOrWhiteSpace(haproxy) ? null : haproxy.Trim();
 
-            _logger.LogInformation("Configuration loaded - UDP: {UdpPort}, TCP: {TcpPort}, Upstream: {UpstreamServers}",
-                _udpPort, _tcpPort, string.Join(", ", _upstreamServers));
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+                var list = await context.DomainUpstreamMappings.AsNoTracking().ToListAsync();
+                _domainUpstreamMappings = list
+                    .Select(m => (Domain: NormalizeDomain(m.Domain), UpstreamServer: m.UpstreamServer.Trim()))
+                    .Where(m => !string.IsNullOrEmpty(m.Domain) && !string.IsNullOrEmpty(m.UpstreamServer))
+                    .OrderByDescending(m => m.Domain.Length)
+                    .ToList();
+            }
+
+            _logger.LogInformation("Configuration loaded - UDP: {UdpPort}, TCP: {TcpPort}, Upstream: {UpstreamServers}, Haproxy: {Haproxy}, Domain mappings: {MappingCount}",
+                _udpPort, _tcpPort, string.Join(", ", _upstreamServers), _haproxyIp ?? "(none)", _domainUpstreamMappings.Count);
         }
         catch (Exception ex)
         {
@@ -83,7 +100,31 @@ public class DnsServer : BackgroundService
             _udpPort = 53;
             _tcpPort = 53;
             _upstreamServers = new[] { "8.8.8.8", "1.1.1.1", "2001:4860:4860::8888", "2606:4700:4700::1111" };
+            _haproxyIp = null;
+            _domainUpstreamMappings = new List<(string Domain, string UpstreamServer)>();
         }
+    }
+
+    private static string NormalizeDomain(string domain)
+    {
+        if (string.IsNullOrWhiteSpace(domain)) return string.Empty;
+        return domain.Trim().TrimEnd('.').ToLowerInvariant();
+    }
+
+    private string[] GetUpstreamServersForName(string dnsName)
+    {
+        var name = NormalizeDomain(dnsName);
+        if (string.IsNullOrEmpty(name)) return _upstreamServers;
+
+        foreach (var (domain, upstream) in _domainUpstreamMappings)
+        {
+            if (name == domain || name.EndsWith("." + domain, StringComparison.OrdinalIgnoreCase))
+            {
+                return new[] { upstream };
+            }
+        }
+
+        return _upstreamServers;
     }
 
     private async Task ReloadConfigurationAsync(CancellationToken stoppingToken)
@@ -204,6 +245,25 @@ public class DnsServer : BackgroundService
                 return CreateResponseFromCache(request, cachedResponse);
             }
 
+            // If Haproxy is set and query is A, check Kubernetes Ingress hosts and return Haproxy IP if matched
+            if (!string.IsNullOrEmpty(_haproxyIp) && dnsMessage.Type == "A" &&
+                IPAddress.TryParse(_haproxyIp, out var haproxyAddr) && haproxyAddr.AddressFamily == AddressFamily.InterNetwork)
+            {
+                var inIngress = await _ingressHostResolver.IsHostInAnyIngressAsync(dnsMessage.Name, stoppingToken);
+                if (inIngress)
+                {
+                    _logger.LogInformation("Ingress match for {Name} -> Haproxy {HaproxyIp}", dnsMessage.Name, _haproxyIp);
+                    var syntheticRecord = new DnsRecord
+                    {
+                        Name = dnsMessage.Name,
+                        Type = "A",
+                        Value = _haproxyIp,
+                        Ttl = 60
+                    };
+                    return CreateAuthoritativeResponse(request, dnsMessage, syntheticRecord);
+                }
+            }
+
             // Check authoritative records
             var authoritativeResponse = await GetAuthoritativeResponseAsync(dnsMessage);
             if (authoritativeResponse != null)
@@ -268,7 +328,8 @@ public class DnsServer : BackgroundService
 
     private async Task<(byte[]? response, string? server)> QueryUpstreamServersAsync(DnsMessage dnsMessage, CancellationToken stoppingToken)
     {
-        foreach (var upstreamServer in _upstreamServers)
+        var serversToUse = GetUpstreamServersForName(dnsMessage.Name);
+        foreach (var upstreamServer in serversToUse)
         {
             try
             {

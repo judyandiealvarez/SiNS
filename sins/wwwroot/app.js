@@ -70,13 +70,17 @@ const store = Vuex.createStore({
                 cacheTimeoutMinutes: 60,
                 udpPort: 53,
                 tcpPort: 53,
-                upstreamServers: ['8.8.8.8', '1.1.1.1', '2001:4860:4860::8888', '2606:4700:4700::1111']
+                upstreamServers: ['8.8.8.8', '1.1.1.1', '2001:4860:4860::8888', '2606:4700:4700::1111'],
+                haproxy: null
             },
+            domainUpstreamMappings: [],
             
             // Modals
             showAddRecordModal: false,
             showEditRecordModal: false,
             showAddUserModal: false,
+            showAddDomainMappingModal: false,
+            showEditDomainMappingModal: false,
             
             // Forms
             loginForm: {
@@ -103,7 +107,9 @@ const store = Vuex.createStore({
                 type: 'A',
                 value: '',
                 ttl: 3600
-            }
+            },
+            newDomainMapping: { domain: '', upstreamServer: '' },
+            editingDomainMapping: { id: null, domain: '', upstreamServer: '' }
         }
     },
     
@@ -162,6 +168,10 @@ const store = Vuex.createStore({
             state.settings = settings;
         },
         
+        SET_DOMAIN_UPSTREAM_MAPPINGS(state, mappings) {
+            state.domainUpstreamMappings = mappings || [];
+        },
+        
         SET_SHOW_ADD_RECORD_MODAL(state, show) {
             state.showAddRecordModal = show;
         },
@@ -172,6 +182,14 @@ const store = Vuex.createStore({
         
         SET_SHOW_ADD_USER_MODAL(state, show) {
             state.showAddUserModal = show;
+        },
+        
+        SET_SHOW_ADD_DOMAIN_MAPPING_MODAL(state, show) {
+            state.showAddDomainMappingModal = show;
+        },
+        
+        SET_SHOW_EDIT_DOMAIN_MAPPING_MODAL(state, show) {
+            state.showEditDomainMappingModal = show;
         },
         
         RESET_NEW_RECORD(state) {
@@ -201,6 +219,22 @@ const store = Vuex.createStore({
                 value: '',
                 ttl: 3600
             };
+        },
+        
+        SET_EDITING_DOMAIN_MAPPING(state, mapping) {
+            state.editingDomainMapping = {
+                id: mapping.id,
+                domain: mapping.domain,
+                upstreamServer: mapping.upstreamServer
+            };
+        },
+        
+        RESET_EDITING_DOMAIN_MAPPING(state) {
+            state.editingDomainMapping = { id: null, domain: '', upstreamServer: '' };
+        },
+        
+        RESET_NEW_DOMAIN_MAPPING(state) {
+            state.newDomainMapping = { domain: '', upstreamServer: '' };
         },
         
         RESET_NEW_USER(state) {
@@ -337,14 +371,101 @@ const store = Vuex.createStore({
             if (!state.token) return;
             
             try {
-                const response = await apiFetch('/api/dns/config');
+                const [configRes, mappingsRes] = await Promise.all([
+                    apiFetch('/api/dns/config'),
+                    apiFetch('/api/dns/domain-upstreams')
+                ]);
                 
-                if (response.ok) {
-                    const settings = await response.json();
+                if (configRes.ok) {
+                    const settings = await configRes.json();
                     commit('SET_SETTINGS', settings);
+                }
+                if (mappingsRes.ok) {
+                    const mappings = await mappingsRes.json();
+                    commit('SET_DOMAIN_UPSTREAM_MAPPINGS', mappings);
                 }
             } catch (error) {
                 console.error('Failed to load settings:', error);
+            }
+        },
+        
+        async addDomainMapping({ commit, state, dispatch }) {
+            if (!state.token) return;
+            if (!state.newDomainMapping.domain.trim() || !state.newDomainMapping.upstreamServer.trim()) {
+                commit('SET_ERROR', 'Domain and upstream server are required');
+                return;
+            }
+            commit('SET_LOADING', true);
+            commit('SET_ERROR', null);
+            try {
+                const response = await apiFetch('/api/dns/domain-upstreams', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        domain: state.newDomainMapping.domain.trim(),
+                        upstreamServer: state.newDomainMapping.upstreamServer.trim()
+                    })
+                });
+                if (response.ok) {
+                    commit('SET_SHOW_ADD_DOMAIN_MAPPING_MODAL', false);
+                    commit('RESET_NEW_DOMAIN_MAPPING');
+                    await dispatch('loadSettings');
+                } else {
+                    const data = await response.json();
+                    commit('SET_ERROR', data.message || 'Failed to add mapping');
+                }
+            } catch (error) {
+                commit('SET_ERROR', 'Network error. Please try again.');
+            } finally {
+                commit('SET_LOADING', false);
+            }
+        },
+        
+        async updateDomainMapping({ commit, state, dispatch }) {
+            if (!state.token) return;
+            if (!state.editingDomainMapping.domain.trim() || !state.editingDomainMapping.upstreamServer.trim()) {
+                commit('SET_ERROR', 'Domain and upstream server are required');
+                return;
+            }
+            commit('SET_LOADING', true);
+            commit('SET_ERROR', null);
+            try {
+                const response = await apiFetch(`/api/dns/domain-upstreams/${state.editingDomainMapping.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        domain: state.editingDomainMapping.domain.trim(),
+                        upstreamServer: state.editingDomainMapping.upstreamServer.trim()
+                    })
+                });
+                if (response.ok) {
+                    commit('SET_SHOW_EDIT_DOMAIN_MAPPING_MODAL', false);
+                    commit('RESET_EDITING_DOMAIN_MAPPING');
+                    await dispatch('loadSettings');
+                } else {
+                    const data = await response.json();
+                    commit('SET_ERROR', data.message || 'Failed to update mapping');
+                }
+            } catch (error) {
+                commit('SET_ERROR', 'Network error. Please try again.');
+            } finally {
+                commit('SET_LOADING', false);
+            }
+        },
+        
+        async deleteDomainMapping({ commit, state, dispatch }, id) {
+            if (!state.token) return;
+            if (!confirm('Remove this domain → upstream mapping?')) return;
+            try {
+                const response = await apiFetch(`/api/dns/domain-upstreams/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    await dispatch('loadSettings');
+                } else {
+                    const data = await response.json();
+                    commit('SET_ERROR', data.message || 'Failed to delete mapping');
+                }
+            } catch (error) {
+                commit('SET_ERROR', 'Network error. Please try again.');
             }
         },
         
@@ -598,8 +719,11 @@ const app = Vue.createApp({
         ...Vuex.mapState([
             'token', 'currentUser', 'loading', 'error', 'currentSection',
             'stats', 'records', 'cacheRecords', 'users', 'settings', 'version',
+            'domainUpstreamMappings',
             'showAddRecordModal', 'showEditRecordModal', 'showAddUserModal',
-            'loginForm', 'newRecord', 'editingRecord', 'newUser'
+            'showAddDomainMappingModal', 'showEditDomainMappingModal',
+            'loginForm', 'newRecord', 'editingRecord', 'newUser',
+            'newDomainMapping', 'editingDomainMapping'
         ]),
         
         ...Vuex.mapGetters(['isAuthenticated']),
@@ -619,6 +743,7 @@ const app = Vue.createApp({
             'login', 'logout', 'loadDashboard', 'loadRecords', 'loadCache',
             'loadUsers', 'loadSettings', 'loadVersion', 'addRecord', 'deleteRecord', 'updateRecord',
             'clearExpiredCache', 'clearAllCache', 'saveSettings',
+            'addDomainMapping', 'updateDomainMapping', 'deleteDomainMapping',
             'addUser', 'deleteUser', 'showSection'
         ]),
         
@@ -671,14 +796,43 @@ const app = Vue.createApp({
         },
         
         submitEditRecord() {
-            // Validate form
             const form = document.getElementById('editRecordForm');
             if (form && form.checkValidity()) {
                 this.updateRecord();
             } else {
-                // Trigger browser validation
                 form.reportValidity();
             }
+        },
+        
+        openAddDomainMappingModal() {
+            this.$store.commit('SET_ERROR', null);
+            this.$store.commit('RESET_NEW_DOMAIN_MAPPING');
+            this.$store.commit('SET_SHOW_ADD_DOMAIN_MAPPING_MODAL', true);
+        },
+        
+        closeAddDomainMappingModal() {
+            this.$store.commit('SET_SHOW_ADD_DOMAIN_MAPPING_MODAL', false);
+            this.$store.commit('RESET_NEW_DOMAIN_MAPPING');
+        },
+        
+        editDomainMapping(mapping) {
+            this.$store.commit('SET_EDITING_DOMAIN_MAPPING', { id: mapping.id, domain: mapping.domain, upstreamServer: mapping.upstreamServer });
+            this.$store.commit('SET_SHOW_EDIT_DOMAIN_MAPPING_MODAL', true);
+        },
+        
+        closeEditDomainMappingModal() {
+            this.$store.commit('SET_SHOW_EDIT_DOMAIN_MAPPING_MODAL', false);
+            this.$store.commit('RESET_EDITING_DOMAIN_MAPPING');
+        },
+        
+        submitAddDomainMapping() {
+            this.$store.commit('SET_ERROR', null);
+            if (this.newDomainMapping.domain && this.newDomainMapping.upstreamServer) this.addDomainMapping();
+        },
+        
+        submitEditDomainMapping() {
+            this.$store.commit('SET_ERROR', null);
+            if (this.editingDomainMapping.domain && this.editingDomainMapping.upstreamServer) this.updateDomainMapping();
         }
     },
     
