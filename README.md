@@ -10,7 +10,7 @@
 - **SiNS DNS Server**: Authoritative and recursive DNS server supporting UDP and TCP
 - **Web Management**: Modern Vue.js interface with Vuex state management
 - **Database Storage**: PostgreSQL for DNS records, cache, and configuration
-- **Authentication**: JWT-based authentication with role-based access
+- **Authentication**: Switchable embedded OAuth2/OIDC or external Keycloak mode
 - **Caching**: Intelligent DNS caching with configurable TTL
 - **Real-time Configuration**: Database-driven configuration with immediate effect
 - **Production Ready**: Static IP addressing and proper service management
@@ -51,7 +51,7 @@ sudo apt install sins
 **From GitHub Releases:**
 ```bash
 # Download latest release
-wget https://github.com/judyandiealvarez/SiNS/releases/latest/download/sins_*.deb
+wget https://github.com/swipentap/SiNS/releases/latest/download/sins_*.deb
 
 # Install
 sudo dpkg -i sins_*.deb
@@ -71,10 +71,10 @@ For production deployment, you can use the pre-built Docker Hub image:
 mkdir sins-production && cd sins-production
 
 # Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
 
 # Download deployment script
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
 chmod +x deploy.sh
 
 # Run deployment (requires root)
@@ -104,7 +104,11 @@ The deployment script will:
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - User login
+- `GET /api/auth/provider` - Active auth provider (`Embedded` or `Keycloak`)
+- `POST /connect/token` - Embedded OAuth2 password/refresh token endpoint
+- `POST /api/auth/keycloak/login` - Keycloak password grant proxy
+- `POST /api/auth/keycloak/refresh` - Keycloak refresh token proxy
+- `POST /api/auth/keycloak/logout` - Keycloak token revocation proxy
 - `POST /api/auth/register` - User registration (Admin only)
 - `GET /api/auth/users` - List users (Admin only)
 
@@ -138,7 +142,14 @@ The deployment script will:
 ### Authentication
 - **Default Admin**: admin / admin123
 - **Role-based Access**: Admin and User roles
-- **JWT Tokens**: Secure authentication
+- **Provider Modes**:
+  - `Embedded`: SINS issues tokens directly through `/connect/token`
+  - `Keycloak`: SINS validates Keycloak JWTs and proxies login/refresh/logout
+
+### Keycloak Mode Notes
+- Set `Auth:Provider=Keycloak` and the `Keycloak:*` settings on the backend.
+- In Keycloak mode, creating a user in SINS does not provision that user in Keycloak.
+- You can check the current mode with `GET /api/auth/provider`.
 
 ## Production Features
 
@@ -185,6 +196,12 @@ nslookup google.com localhost
 
 # Test web interface
 curl http://localhost/api/dns/health
+
+# Backend tests
+dotnet test
+
+# UI unit tests
+cd sins-ui && npm install && npm run test:unit
 ```
 
 ## License
@@ -216,7 +233,7 @@ sudo apt update && sudo apt install sins-cli
 ```
 
 **Or download both from GitHub Releases:**
-Visit the [Releases page](https://github.com/judyandiealvarez/SiNS/releases) to download both deb packages.
+Visit the [Releases page](https://github.com/swipentap/SiNS/releases) to download both deb packages.
 
 ## Contributing
 

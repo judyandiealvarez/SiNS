@@ -103,7 +103,7 @@ The SiNS project uses several GitHub Actions workflows to automate various aspec
 
 - **CI Results**: Check the Actions tab for CI workflow results
 - **Security Issues**: Check the Security tab for vulnerability reports
-- **Docker Images**: Available at `ghcr.io/judyandiealvarez/SiNS`
+- **Docker Images**: Available at `ghcr.io/swipentap/SiNS`
 - **Releases**: Check the Releases tab for created releases
 
 ## Configuration
@@ -113,7 +113,7 @@ The SiNS project uses several GitHub Actions workflows to automate various aspec
 The workflows use the following environment variables:
 
 - `REGISTRY`: Docker Hub (`docker.io`)
-- `IMAGE_NAME`: Repository name (`judyandiealvarez/sins`)
+- `IMAGE_NAME`: Repository name (`swipentap/sins`)
 
 ### Secrets
 
@@ -129,25 +129,25 @@ The workflows use the following secrets:
 
 The workflows create the following image tags:
 
-- **Version tags**: `judyandiealvarez/sins:v1.0.0`
-- **Branch tags**: `judyandiealvarez/sins:main`
-- **PR tags**: `judyandiealvarez/sins:pr-123`
-- **SHA tags**: `judyandiealvarez/sins:main-abc123`
+- **Version tags**: `swipentap/sins:v1.0.0`
+- **Branch tags**: `swipentap/sins:main`
+- **PR tags**: `swipentap/sins:pr-123`
+- **SHA tags**: `swipentap/sins:main-abc123`
 
 ### Using Docker Images
 
 ```bash
 # Pull latest release
-docker pull judyandiealvarez/sins:v1.0.0
+docker pull swipentap/sins:v1.0.0
 
 # Pull latest main branch
-docker pull judyandiealvarez/sins:main
+docker pull swipentap/sins:main
 
 # Run with docker-compose
 version: '3.8'
 services:
   dns-server:
-    image: judyandiealvarez/sins:v1.0.0
+    image: swipentap/sins:v1.0.0
     ports:
       - "53:53/udp"
       - "53:53/tcp"

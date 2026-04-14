@@ -4,12 +4,12 @@ This document explains how to set up Docker Hub integration for the SiNS project
 
 ## Overview
 
-The SiNS project uses Docker Hub to store and distribute Docker images. The GitHub Actions workflows automatically build and push images to the `judyandiealvarez/sins` repository on Docker Hub.
+The SiNS project uses Docker Hub to store and distribute Docker images. The GitHub Actions workflows automatically build and push images to the `swipentap/sins` repository on Docker Hub.
 
 ## Prerequisites
 
 1. **Docker Hub Account**: You need a Docker Hub account
-2. **Repository Access**: The repository `judyandiealvarez/sins` should exist on Docker Hub
+2. **Repository Access**: The repository `swipentap/sins` should exist on Docker Hub
 3. **GitHub Repository**: The GitHub repository should have access to set secrets
 
 ## Setup Steps
@@ -43,7 +43,7 @@ The SiNS project uses Docker Hub to store and distribute Docker images. The GitH
 
 #### Secret: `DOCKERHUB_USERNAME`
 - **Name**: `DOCKERHUB_USERNAME`
-- **Value**: Your Docker Hub username (e.g., `judyandiealvarez`)
+- **Value**: Your Docker Hub username (e.g., `swipentap`)
 
 #### Secret: `DOCKERHUB_TOKEN`
 - **Name**: `DOCKERHUB_TOKEN`
@@ -60,10 +60,10 @@ The SiNS project uses Docker Hub to store and distribute Docker images. The GitH
 
 The workflows create the following image tags:
 
-- **Version tags**: `judyandiealvarez/sins:v1.0.0`
-- **Branch tags**: `judyandiealvarez/sins:main`
-- **PR tags**: `judyandiealvarez/sins:pr-123`
-- **SHA tags**: `judyandiealvarez/sins:main-abc123`
+- **Version tags**: `swipentap/sins:v1.0.0`
+- **Branch tags**: `swipentap/sins:main`
+- **PR tags**: `swipentap/sins:pr-123`
+- **SHA tags**: `swipentap/sins:main-abc123`
 
 ## Usage
 
@@ -71,10 +71,10 @@ The workflows create the following image tags:
 
 ```bash
 # Pull latest release
-docker pull judyandiealvarez/sins:v1.0.0
+docker pull swipentap/sins:v1.0.0
 
 # Pull latest main branch
-docker pull judyandiealvarez/sins:main
+docker pull swipentap/sins:main
 ```
 
 ### Use in Docker Compose
@@ -93,7 +93,7 @@ services:
         ipv4_address: 172.20.0.2
         
   dns-server:
-    image: judyandiealvarez/sins:v1.0.0
+    image: swipentap/sins:v1.0.0
     ports:
       - "53:53/udp"
       - "53:53/tcp"
@@ -147,7 +147,7 @@ networks:
    docker login -u your-username -p your-token
    
    # Test image pull
-   docker pull judyandiealvarez/sins:main
+   docker pull swipentap/sins:main
    ```
 
 ## Security Considerations

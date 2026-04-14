@@ -35,8 +35,19 @@ This guide covers using the DNS Server web interface for managing DNS records, c
 
 1. **Enter your username and password**
 2. **Click "Login"**
-3. **JWT token** is automatically stored in browser
-4. **Session persists** until logout or token expiration
+3. **Authentication provider** is resolved from `GET /api/auth/provider`
+4. **JWT token** is automatically stored in browser
+5. **Session persists** until logout or token expiration
+
+### Authentication Providers
+
+- **Embedded mode**:
+  - UI submits credentials to `/connect/token`
+  - SINS issues and validates access tokens
+- **Keycloak mode**:
+  - UI submits credentials to `/api/auth/keycloak/login`
+  - SINS exchanges credentials with Keycloak and validates Keycloak JWTs
+  - Logout uses `/api/auth/keycloak/logout`
 
 ### Logout
 
@@ -263,7 +274,9 @@ Each user displays:
 #### Step 3: Create User
 1. **Click "Add User"** to save
 2. **User account** is created immediately
-3. **User can login** with new credentials
+3. **User can login** with new credentials in embedded mode
+
+In Keycloak mode, users created in SINS are not automatically provisioned in Keycloak.
 
 ### User Roles
 

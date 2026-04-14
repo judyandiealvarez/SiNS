@@ -52,7 +52,7 @@ sudo apt install sins
 **SiNS Server from GitHub Release:**
 ```bash
 # Download from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins_1.0.0_amd64.deb
+wget https://github.com/swipentap/SiNS/releases/download/v1.0.0/sins_1.0.0_amd64.deb
 
 # Install
 sudo dpkg -i sins_1.0.0_amd64.deb
@@ -69,7 +69,7 @@ sudo apt install sins-cli
 **SiNS CLI from GitHub Release:**
 ```bash
 # Download from GitHub Releases page
-wget https://github.com/judyandiealvarez/SiNS/releases/download/v1.0.0/sins-cli_1.0.0_amd64.deb
+wget https://github.com/swipentap/SiNS/releases/download/v1.0.0/sins-cli_1.0.0_amd64.deb
 
 # Install
 sudo dpkg -i sins-cli_1.0.0_amd64.deb
@@ -98,9 +98,9 @@ git push origin v1.0.0
 #### Installation After Release
 
 ```bash
-docker pull judyandiealvarez/sins:1.0.0
+docker pull swipentap/sins:1.0.0
 # or
-docker pull judyandiealvarez/sins:latest
+docker pull swipentap/sins:latest
 ```
 
 ## Version Numbering

@@ -13,6 +13,10 @@ export default defineConfig({
     outDir: fileURLToPath(new URL('../sins/wwwroot', import.meta.url)),
     emptyOutDir: true
   },
+  test: {
+    environment: 'jsdom',
+    globals: true
+  },
   server: {
     proxy: {
       '/api': {

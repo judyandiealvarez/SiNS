@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: judyandiealvarez/sins
+  IMAGE_NAME: swipentap/sins
 
 jobs:
   test:

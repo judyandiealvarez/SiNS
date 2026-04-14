@@ -17,25 +17,56 @@ This document provides a complete reference for the DNS Server API endpoints.
 
 ## Authentication
 
-The API uses JWT (JSON Web Token) authentication. Most endpoints require authentication except for the health check endpoint.
+The API supports two authentication providers:
 
-### Authentication Flow
+- **Embedded**: SINS serves OAuth2/OIDC endpoints directly (`/connect/token`)
+- **Keycloak**: SINS validates Keycloak tokens and proxies password/refresh/revoke calls
 
-1. **Login**: POST `/api/auth/login` to obtain a JWT token
-2. **Include Token**: Add the token to the `Authorization` header
-3. **Token Format**: `Bearer <token>`
+Most endpoints require a bearer token except health and provider discovery endpoints.
 
-### Example
+### Determine Active Provider
+
+**GET** `/api/auth/provider`
+
+```json
+{
+  "provider": "Embedded"
+}
+```
+
+```json
+{
+  "provider": "Keycloak"
+}
+```
+
+### Embedded OAuth2 Login (Password Grant)
+
+**POST** `/connect/token`
+
+`Content-Type: application/x-www-form-urlencoded`
 
 ```bash
-# Login to get token
-curl -X POST http://localhost/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}'
+curl -X POST http://localhost/connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=sins-spa&scope=openid%20profile%20email%20offline_access%20api&username=admin&password=admin123"
+```
 
-# Use token in subsequent requests
+### Keycloak Login (Proxy Endpoint)
+
+**POST** `/api/auth/keycloak/login`
+
+```bash
+curl -X POST http://localhost/api/auth/keycloak/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+```
+
+### Use Token in Subsequent Requests
+
+```bash
 curl -X GET http://localhost/api/dns/records \
-  -H "Authorization: Bearer <your-jwt-token>"
+  -H "Authorization: Bearer <access_token>"
 ```
 
 ## Base URL
@@ -103,43 +134,43 @@ http://localhost/api
 
 ## Authentication Endpoints
 
-### Login
+### Provider Discovery
 
-**POST** `/api/auth/login`
+**GET** `/api/auth/provider`
 
-Authenticate a user and receive a JWT token.
-
-#### Request Body
-
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
+Returns the active provider used by login flow.
 
 #### Response
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "username": "admin",
-    "email": "admin@example.com",
-    "role": "Admin"
-  },
-  "expiresAt": "2024-01-01T01:00:00Z"
+  "provider": "Embedded"
 }
 ```
 
-#### Example
+### Embedded Token Endpoint
 
-```bash
-curl -X POST http://localhost/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}'
-```
+**POST** `/connect/token`
+
+Used only when provider is `Embedded`.
+
+### Keycloak Login Endpoint
+
+**POST** `/api/auth/keycloak/login`
+
+Used only when provider is `Keycloak`.
+
+### Keycloak Refresh Endpoint
+
+**POST** `/api/auth/keycloak/refresh`
+
+Used only when provider is `Keycloak`.
+
+### Keycloak Logout (Revocation) Endpoint
+
+**POST** `/api/auth/keycloak/logout`
+
+Used only when provider is `Keycloak`.
 
 ### Register User
 
@@ -623,10 +654,10 @@ records = api.get_records()
 ### cURL Examples
 
 ```bash
-# Login
-TOKEN=$(curl -s -X POST http://localhost/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}' | jq -r '.token')
+# Login in embedded mode
+TOKEN=$(curl -s -X POST http://localhost/connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&client_id=sins-spa&scope=openid%20profile%20email%20offline_access%20api&username=admin&password=admin123" | jq -r '.access_token')
 
 # Get records
 curl -X GET http://localhost/api/dns/records \

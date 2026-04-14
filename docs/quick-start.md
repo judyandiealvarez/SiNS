@@ -20,15 +20,15 @@ Before you begin, ensure you have:
 mkdir sins-production && cd sins-production
 
 # Download configuration files
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
 chmod +x deploy.sh
 ```
 
 ### Option B: Clone Repository
 
 ```bash
-git clone https://github.com/judyandiealvarez/SiNS.git
+git clone https://github.com/swipentap/SiNS.git
 cd sins
 ```
 
@@ -54,6 +54,14 @@ This script will:
 3. **Login** with default credentials:
    - Username: `admin`
    - Password: `admin123`
+
+Optional: verify the active auth provider:
+
+```bash
+curl http://localhost/api/auth/provider
+```
+
+If response is `{"provider":"Keycloak"}`, login is delegated through Keycloak endpoints.
 
 ## Step 4: Test DNS Resolution
 

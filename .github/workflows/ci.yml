@@ -10,7 +10,7 @@ on:
   workflow_dispatch: {} # Disabled - only allow manual trigger
 
 env:
-  IMAGE_NAME: judyandiealvarez/sins
+  IMAGE_NAME: swipentap/sins
 
 jobs:
   test:

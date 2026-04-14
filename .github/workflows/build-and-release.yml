@@ -16,7 +16,7 @@ on:
         default: '1.0.0'
 
 env:
-  IMAGE_NAME: judyandiealvarez/sins
+  IMAGE_NAME: swipentap/sins
 
 jobs:
   get-latest-tag:
@@ -596,7 +596,7 @@ jobs:
           Docker image is also available:
           
           ```bash
-          docker pull judyandiealvarez/sins:${{ steps.version.outputs.version }}
+          docker pull swipentap/sins:${{ steps.version.outputs.version }}
           ```
           
           ### 🐳 Docker Compose
@@ -615,7 +615,7 @@ jobs:
                   ipv4_address: 172.20.0.2
                   
             dns-server:
-              image: judyandiealvarez/sins:${{ steps.version.outputs.version }}
+              image: swipentap/sins:${{ steps.version.outputs.version }}
               ports:
                 - "53:53/udp"
                 - "53:53/tcp"

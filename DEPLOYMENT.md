@@ -14,24 +14,24 @@ This guide covers deploying the DNS server in a production Linux environment.
 SiNS is available as pre-built Docker images on Docker Hub:
 
 ### Available Tags
-- `judyandiealvarez/sins:latest` - Latest stable version
-- `judyandiealvarez/sins:1.0.6` - Specific version (replace with desired version)
-- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
+- `swipentap/sins:latest` - Latest stable version
+- `swipentap/sins:1.0.6` - Specific version (replace with desired version)
+- `swipentap/sins:1.0` - Latest 1.0.x version
 
 ### Pull Image
 ```bash
 # Pull latest version
-docker pull judyandiealvarez/sins:latest
+docker pull swipentap/sins:latest
 
 # Pull specific version
-docker pull judyandiealvarez/sins:1.0.6
+docker pull swipentap/sins:1.0.6
 ```
 
 ### Image Information
 - **Base**: .NET 8.0 runtime
 - **Size**: ~200MB
 - **Architecture**: linux/amd64
-- **Source**: https://github.com/judyandiealvarez/SiNS
+- **Source**: https://github.com/swipentap/SiNS
 
 ## Quick Deployment
 
@@ -40,8 +40,8 @@ docker pull judyandiealvarez/sins:1.0.6
 1. **Create deployment directory and download files**:
    ```bash
    mkdir sins-production && cd sins-production
-   curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
-   curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+   curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
+   curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
    chmod +x deploy.sh
    ```
 
@@ -54,7 +54,7 @@ docker pull judyandiealvarez/sins:1.0.6
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/judyandiealvarez/SiNS.git
+   git clone https://github.com/swipentap/SiNS.git
    cd sins
    ```
 
@@ -111,10 +111,10 @@ docker-compose up -d
 docker-compose ps
 ```
 
-**Note**: The deployment uses the pre-built Docker Hub image `judyandiealvarez/sins:latest`. For specific versions, you can modify the image tag in `docker-compose.yml`:
-- `judyandiealvarez/sins:latest` - Latest stable version
-- `judyandiealvarez/sins:1.0.6` - Specific version
-- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
+**Note**: The deployment uses the pre-built Docker Hub image `swipentap/sins:latest`. For specific versions, you can modify the image tag in `docker-compose.yml`:
+- `swipentap/sins:latest` - Latest stable version
+- `swipentap/sins:1.0.6` - Specific version
+- `swipentap/sins:1.0` - Latest 1.0.x version
 
 ### 4. Test Deployment
 

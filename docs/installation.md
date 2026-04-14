@@ -60,23 +60,23 @@ This guide covers installing the DNS server in various environments, from develo
 SiNS is available as pre-built Docker images on Docker Hub for easy deployment:
 
 #### Available Image Tags
-- `judyandiealvarez/sins:latest` - Latest stable version
-- `judyandiealvarez/sins:1.0.6` - Specific version (replace with desired version)
-- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
+- `swipentap/sins:latest` - Latest stable version
+- `swipentap/sins:1.0.6` - Specific version (replace with desired version)
+- `swipentap/sins:1.0` - Latest 1.0.x version
 
 #### Image Details
 - **Base**: .NET 8.0 runtime
 - **Size**: ~200MB
 - **Architecture**: linux/amd64
-- **Source**: https://github.com/judyandiealvarez/SiNS
+- **Source**: https://github.com/swipentap/SiNS
 
 #### Pull Image
 ```bash
 # Pull latest version
-docker pull judyandiealvarez/sins:latest
+docker pull swipentap/sins:latest
 
 # Pull specific version
-docker pull judyandiealvarez/sins:1.0.6
+docker pull swipentap/sins:1.0.6
 ```
 
 ### Automated Installation
@@ -111,8 +111,8 @@ newgrp docker
 mkdir sins-production && cd sins-production
 
 # Download configuration files
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
 chmod +x deploy.sh
 
 # Run deployment (requires root)
@@ -123,7 +123,7 @@ sudo ./deploy.sh
 
 ```bash
 # Clone the repository
-git clone https://github.com/judyandiealvarez/SiNS.git
+git clone https://github.com/swipentap/SiNS.git
 cd sins
 
 # Make deployment script executable

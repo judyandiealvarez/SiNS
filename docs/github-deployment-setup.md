@@ -46,12 +46,12 @@ sudo ./setup-github-runner.sh
 ```
 
 The script will prompt you for:
-- **Repository URL**: `https://github.com/judyandiealvarez/SiNS`
+- **Repository URL**: `https://github.com/swipentap/SiNS`
 - **Runner Token**: Get this from GitHub repository settings
 
 ### 3. Get Runner Token from GitHub
 
-1. Go to your GitHub repository: `https://github.com/judyandiealvarez/SiNS`
+1. Go to your GitHub repository: `https://github.com/swipentap/SiNS`
 2. Navigate to: **Settings** → **Actions** → **Runners**
 3. Click **New self-hosted runner**
 4. Copy the token from the configuration command
@@ -167,7 +167,7 @@ ssh jaal@10.11.2.5
 cd /home/jaal/ci
 
 # Pull latest image
-docker pull judyandiealvarez/sins:latest
+docker pull swipentap/sins:latest
 
 # Restart services
 docker compose down

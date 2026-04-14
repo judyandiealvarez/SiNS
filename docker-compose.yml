@@ -23,7 +23,7 @@ services:
       start_period: 40s
 
   dns-server:
-    image: judyandiealvarez/sins:latest
+    image: swipentap/sins:latest
     container_name: dns-server
     depends_on:
       - postgres

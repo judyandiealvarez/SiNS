@@ -22,7 +22,7 @@ A command-line interface for managing the SiNS DNS Server via its REST API.
 
 ```bash
 # Clone the repository
-git clone https://github.com/judyandiealvarez/SiNS.git
+git clone https://github.com/swipentap/SiNS.git
 cd sins
 
 # Build the CLI tool
@@ -254,7 +254,7 @@ telnet localhost 80
 
 ```bash
 # Clone and build
-git clone https://github.com/judyandiealvarez/SiNS.git
+git clone https://github.com/swipentap/SiNS.git
 cd sins/sins-cli
 
 # Restore dependencies

@@ -154,7 +154,7 @@ services:
         ipv6_address: 2001:db8::2
 
   dns-server:
-    image: judyandiealvarez/sins:latest
+    image: swipentap/sins:latest
     container_name: dns-server
     ports:
       - "80:80"
@@ -193,7 +193,7 @@ services:
 
 #### Deployment Process
 1. **CI Pipeline**: Build and test on `docker-build` runner (10.11.2.7)
-2. **Docker Hub**: Push image to `judyandiealvarez/sins:latest`
+2. **Docker Hub**: Push image to `swipentap/sins:latest`
 3. **Self-hosted Deployment**: Deploy to production server (10.11.2.5)
 4. **Health Checks**: Verify DNS and web interface functionality
 
@@ -217,7 +217,7 @@ jobs:
     runs-on: docker-build
     steps:
       - Build Docker image with version info
-      - Push to Docker Hub (judyandiealvarez/sins)
+      - Push to Docker Hub (swipentap/sins)
 
   lint:
     runs-on: docker-build

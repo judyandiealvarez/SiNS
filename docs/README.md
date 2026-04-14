@@ -109,8 +109,8 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 mkdir sins-production && cd sins-production
 
 # Download configuration files
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
 chmod +x deploy.sh
 
 # Deploy (requires root)
@@ -121,7 +121,7 @@ sudo ./deploy.sh
 
 ```bash
 # Clone repository
-git clone https://github.com/judyandiealvarez/SiNS.git
+git clone https://github.com/swipentap/SiNS.git
 cd sins
 
 # Build and run

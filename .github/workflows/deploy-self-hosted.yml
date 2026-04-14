@@ -27,7 +27,7 @@ jobs:
         
         # Configuration
         DEPLOY_DIR="/home/jaal/ci"
-        DOCKER_IMAGE="judyandiealvarez/sins:latest"
+        DOCKER_IMAGE="swipentap/sins:latest"
         DOCKER_COMPOSE_FILE="$DEPLOY_DIR/docker-compose.yml"
         LOG_FILE="$DEPLOY_DIR/deploy.log"
         

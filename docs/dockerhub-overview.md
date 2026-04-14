@@ -18,14 +18,14 @@ This document provides a comprehensive overview of SiNS Docker Hub integration, 
 SiNS (Simple Name Server) is available as pre-built Docker images on Docker Hub, providing a streamlined deployment experience for production environments. The images are automatically built and published through GitHub Actions CI/CD pipelines.
 
 ### Docker Hub Repository
-- **Repository**: `judyandiealvarez/sins`
-- **URL**: https://hub.docker.com/r/judyandiealvarez/sins
-- **Source**: https://github.com/judyandiealvarez/SiNS
+- **Repository**: `swipentap/sins`
+- **URL**: https://hub.docker.com/r/swipentap/sins
+- **Source**: https://github.com/swipentap/SiNS
 
 ## Available Images
 
 ### Main Application Image
-- **Image**: `judyandiealvarez/sins`
+- **Image**: `swipentap/sins`
 - **Description**: Complete SiNS DNS server with web management interface
 - **Base**: .NET 8.0 runtime
 - **Architecture**: linux/amd64
@@ -43,25 +43,25 @@ SiNS (Simple Name Server) is available as pre-built Docker images on Docker Hub,
 ## Image Tags
 
 ### Latest Tags
-- `judyandiealvarez/sins:latest` - Latest stable version
-- `judyandiealvarez/sins:main` - Latest development version
+- `swipentap/sins:latest` - Latest stable version
+- `swipentap/sins:main` - Latest development version
 
 ### Version Tags
-- `judyandiealvarez/sins:1.0.6` - Specific version (current)
-- `judyandiealvarez/sins:1.0.5` - Previous version
-- `judyandiealvarez/sins:1.0.4` - Previous version
-- `judyandiealvarez/sins:1.0.3` - Previous version
-- `judyandiealvarez/sins:1.0.2` - Previous version
-- `judyandiealvarez/sins:1.0.1` - Previous version
-- `judyandiealvarez/sins:1.0.0` - Initial release
+- `swipentap/sins:1.0.6` - Specific version (current)
+- `swipentap/sins:1.0.5` - Previous version
+- `swipentap/sins:1.0.4` - Previous version
+- `swipentap/sins:1.0.3` - Previous version
+- `swipentap/sins:1.0.2` - Previous version
+- `swipentap/sins:1.0.1` - Previous version
+- `swipentap/sins:1.0.0` - Initial release
 
 ### Semantic Version Tags
-- `judyandiealvarez/sins:1.0` - Latest 1.0.x version
-- `judyandiealvarez/sins:1` - Latest 1.x.x version
+- `swipentap/sins:1.0` - Latest 1.0.x version
+- `swipentap/sins:1` - Latest 1.x.x version
 
 ### Development Tags
-- `judyandiealvarez/sins:main-sha-<commit>` - Development builds from main branch
-- `judyandiealvarez/sins:<branch>-sha-<commit>` - Branch-specific development builds
+- `swipentap/sins:main-sha-<commit>` - Development builds from main branch
+- `swipentap/sins:<branch>-sha-<commit>` - Branch-specific development builds
 
 ## Image Details
 
@@ -103,7 +103,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 #### Pull and Run
 ```bash
 # Pull latest image
-docker pull judyandiealvarez/sins:latest
+docker pull swipentap/sins:latest
 
 # Run with basic configuration
 docker run -d \
@@ -113,7 +113,7 @@ docker run -d \
   -p 53:53/tcp \
   --cap-add=NET_BIND_SERVICE \
   --user root \
-  judyandiealvarez/sins:latest
+  swipentap/sins:latest
 ```
 
 #### Using Docker Compose
@@ -134,7 +134,7 @@ services:
         ipv4_address: 172.20.0.2
 
   dns-server:
-    image: judyandiealvarez/sins:latest
+    image: swipentap/sins:latest
     depends_on:
       - postgres
     environment:
@@ -171,8 +171,8 @@ networks:
 mkdir sins-production && cd sins-production
 
 # Download configuration files
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/judyandiealvarez/SiNS/main/deploy.sh
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/swipentap/SiNS/main/deploy.sh
 chmod +x deploy.sh
 
 # Deploy (requires root)
@@ -199,7 +199,7 @@ docker-compose up -d
 #### Local Development
 ```bash
 # Pull development image
-docker pull judyandiealvarez/sins:main
+docker pull swipentap/sins:main
 
 # Run with development configuration
 docker run -d \
@@ -208,7 +208,7 @@ docker run -d \
   -p 5354:53/udp \
   -p 5354:53/tcp \
   -e ASPNETCORE_ENVIRONMENT=Development \
-  judyandiealvarez/sins:main
+  swipentap/sins:main
 ```
 
 #### Testing Specific Versions
@@ -218,7 +218,7 @@ docker run -d \
   --name sins-test \
   -p 8081:80 \
   -p 5355:53/udp \
-  judyandiealvarez/sins:1.0.6
+  swipentap/sins:1.0.6
 ```
 
 ## CI/CD Integration
@@ -275,34 +275,34 @@ The Docker images are automatically built and published through GitHub Actions:
 #### Production Deployment
 ```bash
 # Use specific version tags (not latest)
-docker run judyandiealvarez/sins:1.0.6
+docker run swipentap/sins:1.0.6
 
 # Run with read-only root filesystem
-docker run --read-only judyandiealvarez/sins:latest
+docker run --read-only swipentap/sins:latest
 
 # Use secrets for sensitive data
-docker run -e ConnectionStrings__DefaultConnection="$DB_CONNECTION" judyandiealvarez/sins:latest
+docker run -e ConnectionStrings__DefaultConnection="$DB_CONNECTION" swipentap/sins:latest
 ```
 
 #### Network Security
 ```bash
 # Use custom networks
 docker network create sins-network
-docker run --network sins-network judyandiealvarez/sins:latest
+docker run --network sins-network swipentap/sins:latest
 
 # Limit port exposure
-docker run -p 127.0.0.1:80:80 judyandiealvarez/sins:latest
+docker run -p 127.0.0.1:80:80 swipentap/sins:latest
 ```
 
 ### Vulnerability Scanning
 ```bash
 # Scan image for vulnerabilities
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-  aquasec/trivy image judyandiealvarez/sins:latest
+  aquasec/trivy image swipentap/sins:latest
 
 # Scan with specific severity
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-  aquasec/trivy image --severity HIGH,CRITICAL judyandiealvarez/sins:latest
+  aquasec/trivy image --severity HIGH,CRITICAL swipentap/sins:latest
 ```
 
 ## Troubleshooting
@@ -315,10 +315,10 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 docker pull hello-world
 
 # Pull with verbose output
-docker pull --progress=plain judyandiealvarez/sins:latest
+docker pull --progress=plain swipentap/sins:latest
 
 # Check available tags
-curl -s https://registry.hub.docker.com/v2/repositories/judyandiealvarez/sins/tags/ | jq '.results[].name'
+curl -s https://registry.hub.docker.com/v2/repositories/swipentap/sins/tags/ | jq '.results[].name'
 ```
 
 #### Port Binding Issues
@@ -327,7 +327,7 @@ curl -s https://registry.hub.docker.com/v2/repositories/judyandiealvarez/sins/ta
 sudo lsof -i :53
 
 # Use alternative ports for testing
-docker run -p 5354:53/udp -p 5354:53/tcp judyandiealvarez/sins:latest
+docker run -p 5354:53/udp -p 5354:53/tcp swipentap/sins:latest
 
 # Check container logs
 docker logs <container-name>
@@ -336,7 +336,7 @@ docker logs <container-name>
 #### Permission Issues
 ```bash
 # Run with proper capabilities
-docker run --cap-add=NET_BIND_SERVICE --user root judyandiealvarez/sins:latest
+docker run --cap-add=NET_BIND_SERVICE --user root swipentap/sins:latest
 
 # Check container user
 docker exec <container-name> whoami
@@ -400,15 +400,15 @@ curl http://localhost/api/dns/cache
 ## Support and Resources
 
 ### Documentation
-- **Main Documentation**: https://github.com/judyandiealvarez/SiNS
+- **Main Documentation**: https://github.com/swipentap/SiNS
 - **Installation Guide**: [docs/installation.md](installation.md)
 - **Quick Start**: [docs/quick-start.md](quick-start.md)
 - **API Reference**: [docs/api-reference.md](api-reference.md)
 
 ### Community
-- **GitHub Issues**: https://github.com/judyandiealvarez/SiNS/issues
-- **GitHub Discussions**: https://github.com/judyandiealvarez/SiNS/discussions
-- **Docker Hub**: https://hub.docker.com/r/judyandiealvarez/sins
+- **GitHub Issues**: https://github.com/swipentap/SiNS/issues
+- **GitHub Discussions**: https://github.com/swipentap/SiNS/discussions
+- **Docker Hub**: https://hub.docker.com/r/swipentap/sins
 
 ### Version History
 - **Changelog**: Check GitHub releases for detailed version history
