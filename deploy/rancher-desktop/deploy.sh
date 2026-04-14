@@ -36,6 +36,9 @@ kubectl apply -f deploy/rancher-desktop/k8s/
 echo "==> Waiting for postgres Deployment..."
 kubectl rollout status deployment/postgres -n sins-rd --timeout=180s
 
+echo "==> Waiting for keycloak Deployment..."
+kubectl rollout status deployment/keycloak -n sins-rd --timeout=300s
+
 echo "==> Waiting for sins Deployment..."
 kubectl rollout status deployment/sins -n sins-rd --timeout=300s
 
@@ -47,11 +50,13 @@ fi
 echo ""
 echo "========== Access (Rancher Desktop / k3s) =========="
 echo "Web UI / API:  http://127.0.0.1:30080/   (or http://${NODE_IP}:30080/)"
+echo "Keycloak:      http://127.0.0.1:30081/   (or http://${NODE_IP}:30081/)"
 echo "Swagger (Dev): http://127.0.0.1:30080/swagger"
 echo "DNS (UDP):     dig @127.0.0.1 -p 30053 example.com +short"
 echo "               (or dig @${NODE_IP} -p 30053 ...)"
 echo "DNS (TCP):     dig @127.0.0.1 -p 30053 example.com +tcp +short"
 echo ""
 echo "Default login (first DB init): admin / admin123"
+echo "Keycloak admin (for setup):    admin / admin123"
 echo "Postgres (in-cluster only): host postgres port 5432 db dns_server user postgres"
 echo "====================================================="

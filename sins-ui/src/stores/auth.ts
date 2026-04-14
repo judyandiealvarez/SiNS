@@ -13,6 +13,8 @@ function readUser(): CurrentUser | null {
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  const configuredAuthMode = (import.meta.env.VITE_AUTH_MODE ?? '').toLowerCase()
+  const backendAuthMode = ref<'embedded' | 'keycloak' | null>(null)
   const token = ref<string | null>(localStorage.getItem('token'))
   const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
   const currentUser = ref<CurrentUser | null>(readUser())
@@ -20,6 +22,31 @@ export const useAuthStore = defineStore('auth', () => {
   const loginPending = ref(false)
 
   const isAuthenticated = computed(() => !!token.value && !!currentUser.value)
+
+  async function resolveAuthMode(): Promise<'embedded' | 'keycloak'> {
+    if (configuredAuthMode === 'embedded' || configuredAuthMode === 'keycloak') {
+      return configuredAuthMode
+    }
+    if (backendAuthMode.value) {
+      return backendAuthMode.value
+    }
+
+    try {
+      const response = await fetch('/api/auth/provider')
+      if (response.ok) {
+        const data = (await response.json()) as { provider?: string }
+        if ((data.provider ?? '').toLowerCase() === 'keycloak') {
+          backendAuthMode.value = 'keycloak'
+          return 'keycloak'
+        }
+      }
+    } catch {
+      // Fall back to embedded when provider lookup fails.
+    }
+
+    backendAuthMode.value = 'embedded'
+    return 'embedded'
+  }
 
   function setSession(newToken: string, user: CurrentUser, newRefreshToken?: string | null) {
     token.value = newToken
@@ -61,18 +88,26 @@ export const useAuthStore = defineStore('auth', () => {
     loginError.value = null
 
     try {
-      const form = new URLSearchParams()
-      form.set('grant_type', 'password')
-      form.set('client_id', 'sins-spa')
-      form.set('scope', 'openid profile email offline_access api')
-      form.set('username', username)
-      form.set('password', password)
-
-      const response = await fetch('/connect/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString()
-      })
+      const authMode = await resolveAuthMode()
+      const response = authMode === 'keycloak'
+        ? await fetch('/api/auth/keycloak/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          })
+        : await fetch('/connect/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: (() => {
+              const form = new URLSearchParams()
+              form.set('grant_type', 'password')
+              form.set('client_id', 'sins-spa')
+              form.set('scope', 'openid profile email offline_access api')
+              form.set('username', username)
+              form.set('password', password)
+              return form.toString()
+            })()
+          })
       const raw = await response.text()
       let data: {
         access_token?: string
@@ -112,14 +147,23 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     if (refreshToken.value) {
-      const form = new URLSearchParams()
-      form.set('token', refreshToken.value)
-      form.set('client_id', 'sins-spa')
-      await fetch('/connect/revocation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString()
-      })
+      const authMode = await resolveAuthMode()
+      if (authMode === 'keycloak') {
+        await fetch('/api/auth/keycloak/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: refreshToken.value })
+        })
+      } else {
+        const form = new URLSearchParams()
+        form.set('token', refreshToken.value)
+        form.set('client_id', 'sins-spa')
+        await fetch('/connect/revocation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        })
+      }
     }
     clearAuth()
   }

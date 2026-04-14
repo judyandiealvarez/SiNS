@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
@@ -6,6 +8,8 @@ using sins.Data;
 using sins.Models;
 using sins.Services;
 using System.Data;
+using System.Security.Claims;
+using System.Text.Json;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +42,8 @@ if (File.Exists("/etc/sins/appsettings.json"))
 // This ensures env vars override even if JSON file is loaded
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
+var authProvider = builder.Configuration["Auth:Provider"] ?? "Embedded";
+var useKeycloak = string.Equals(authProvider, "Keycloak", StringComparison.OrdinalIgnoreCase);
 
 // Log connection string for debugging (masking password)
 if (!string.IsNullOrEmpty(connectionString))
@@ -100,60 +106,149 @@ builder.Services.AddDbContext<DnsContext>(options =>
     options.UseOpenIddict();
 });
 
-builder.Services.AddOpenIddict()
-    .AddCore(options =>
-    {
-        options.UseEntityFrameworkCore()
-            .UseDbContext<DnsContext>();
-    })
-    .AddServer(options =>
-    {
-        options.SetTokenEndpointUris("/connect/token");
-        options.SetUserInfoEndpointUris("/connect/userinfo");
-        options.SetRevocationEndpointUris("/connect/revocation");
-        options.SetIntrospectionEndpointUris("/connect/introspect");
-
-        options.AllowPasswordFlow();
-        options.AllowRefreshTokenFlow();
-        options.AcceptAnonymousClients();
-
-        options.RegisterScopes(
-            Scopes.OpenId,
-            Scopes.Profile,
-            Scopes.Email,
-            Scopes.OfflineAccess,
-            "api");
-
-        options.SetAccessTokenLifetime(TimeSpan.FromHours(24));
-        options.SetRefreshTokenLifetime(TimeSpan.FromDays(7));
-        options.DisableAccessTokenEncryption();
-
-        options.AddEphemeralEncryptionKey()
-            .AddEphemeralSigningKey();
-
-        options.UseAspNetCore()
-            .EnableTokenEndpointPassthrough()
-            .EnableUserInfoEndpointPassthrough()
-            .EnableStatusCodePagesIntegration()
-            .DisableTransportSecurityRequirement();
-    })
-    .AddValidation(options =>
-    {
-        options.UseLocalServer();
-        options.UseAspNetCore();
-    });
-
-builder.Services.AddAuthentication(options =>
+if (useKeycloak)
 {
-    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
-    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
-});
+    var authority = builder.Configuration["Keycloak:Authority"];
+    if (string.IsNullOrWhiteSpace(authority))
+    {
+        throw new InvalidOperationException("Keycloak:Authority must be set when Auth:Provider is Keycloak.");
+    }
+
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.Authority = authority;
+            options.RequireHttpsMetadata = !builder.Environment.IsDevelopment() ||
+                !bool.TryParse(builder.Configuration["Keycloak:AllowHttpInDevelopment"], out var allowHttp) ||
+                !allowHttp;
+
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = !string.IsNullOrWhiteSpace(builder.Configuration["Keycloak:Audience"]),
+                ValidAudience = builder.Configuration["Keycloak:Audience"],
+                NameClaimType = builder.Configuration["Keycloak:UsernameClaim"] ?? "preferred_username",
+                RoleClaimType = ClaimTypes.Role
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = context =>
+                {
+                    if (context.Principal?.Identity is not ClaimsIdentity identity)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    var usernameClaimType = builder.Configuration["Keycloak:UsernameClaim"] ?? "preferred_username";
+                    var username = context.Principal.FindFirst(usernameClaimType)?.Value;
+                    if (!string.IsNullOrWhiteSpace(username) && !identity.HasClaim(c => c.Type == ClaimTypes.Name))
+                    {
+                        identity.AddClaim(new Claim(ClaimTypes.Name, username));
+                    }
+
+                    var roleClaimType = builder.Configuration["Keycloak:RoleClaim"] ?? ClaimTypes.Role;
+                    if (roleClaimType != ClaimTypes.Role)
+                    {
+                        foreach (var role in context.Principal.FindAll(roleClaimType))
+                        {
+                            if (!identity.HasClaim(ClaimTypes.Role, role.Value))
+                            {
+                                identity.AddClaim(new Claim(ClaimTypes.Role, role.Value));
+                            }
+                        }
+                    }
+
+                    var realmAccessJson = context.Principal.FindFirst("realm_access")?.Value;
+                    if (!string.IsNullOrWhiteSpace(realmAccessJson))
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(realmAccessJson);
+                            if (doc.RootElement.TryGetProperty("roles", out var rolesElement) &&
+                                rolesElement.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var role in rolesElement.EnumerateArray())
+                                {
+                                    var roleValue = role.GetString();
+                                    if (!string.IsNullOrWhiteSpace(roleValue) &&
+                                        !identity.HasClaim(ClaimTypes.Role, roleValue))
+                                    {
+                                        identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore malformed optional role payloads.
+                        }
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
+        });
+}
+else
+{
+    builder.Services.AddOpenIddict()
+        .AddCore(options =>
+        {
+            options.UseEntityFrameworkCore()
+                .UseDbContext<DnsContext>();
+        })
+        .AddServer(options =>
+        {
+            options.SetTokenEndpointUris("/connect/token");
+            options.SetUserInfoEndpointUris("/connect/userinfo");
+            options.SetRevocationEndpointUris("/connect/revocation");
+            options.SetIntrospectionEndpointUris("/connect/introspect");
+
+            options.AllowPasswordFlow();
+            options.AllowRefreshTokenFlow();
+            options.AcceptAnonymousClients();
+
+            options.RegisterScopes(
+                Scopes.OpenId,
+                Scopes.Profile,
+                Scopes.Email,
+                Scopes.OfflineAccess,
+                "api");
+
+            options.SetAccessTokenLifetime(TimeSpan.FromHours(24));
+            options.SetRefreshTokenLifetime(TimeSpan.FromDays(7));
+            options.DisableAccessTokenEncryption();
+
+            options.AddEphemeralEncryptionKey()
+                .AddEphemeralSigningKey();
+
+            options.UseAspNetCore()
+                .EnableTokenEndpointPassthrough()
+                .EnableUserInfoEndpointPassthrough()
+                .EnableStatusCodePagesIntegration()
+                .DisableTransportSecurityRequirement();
+        })
+        .AddValidation(options =>
+        {
+            options.UseLocalServer();
+            options.UseAspNetCore();
+        });
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+        options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    });
+}
 
 builder.Services.AddAuthorization();
 
 // Register services
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<KeycloakTokenService>();
+builder.Services.AddHttpClient(nameof(KeycloakTokenService));
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddSingleton<IIngressHostResolver, KubernetesIngressHostResolver>();
 builder.Services.AddHostedService<DnsServer>();
@@ -202,7 +297,10 @@ try
     {
     var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
     context.Database.EnsureCreated();
-    await EnsureOpenIddictSchemaAsync(context);
+    if (!useKeycloak)
+    {
+        await EnsureOpenIddictSchemaAsync(context);
+    }
 
     // Create default admin user if no users exist
     if (!context.Users.Any())
@@ -212,30 +310,33 @@ try
             Console.WriteLine("Default admin user created: admin / admin123");
         }
 
-        // Register the SPA client used by the embedded OAuth2 server.
-        var applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
-        if (await applicationManager.FindByClientIdAsync("sins-spa") == null)
+        if (!useKeycloak)
         {
-            var spaClient = new OpenIddictApplicationDescriptor
+            // Register the SPA client used by the embedded OAuth2 server.
+            var applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+            if (await applicationManager.FindByClientIdAsync("sins-spa") == null)
             {
-                ClientId = "sins-spa",
-                ConsentType = ConsentTypes.Explicit,
-                DisplayName = "SINS UI SPA",
-                ClientType = ClientTypes.Public
-            };
+                var spaClient = new OpenIddictApplicationDescriptor
+                {
+                    ClientId = "sins-spa",
+                    ConsentType = ConsentTypes.Explicit,
+                    DisplayName = "SINS UI SPA",
+                    ClientType = ClientTypes.Public
+                };
 
-            spaClient.Permissions.Add(Permissions.Endpoints.Token);
-            spaClient.Permissions.Add(Permissions.Endpoints.Revocation);
-            spaClient.Permissions.Add(Permissions.GrantTypes.Password);
-            spaClient.Permissions.Add(Permissions.GrantTypes.RefreshToken);
-            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OpenId);
-            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Profile);
-            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Email);
-            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OfflineAccess);
-            spaClient.Permissions.Add(Permissions.Prefixes.Scope + "api");
+                spaClient.Permissions.Add(Permissions.Endpoints.Token);
+                spaClient.Permissions.Add(Permissions.Endpoints.Revocation);
+                spaClient.Permissions.Add(Permissions.GrantTypes.Password);
+                spaClient.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+                spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OpenId);
+                spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Profile);
+                spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Email);
+                spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OfflineAccess);
+                spaClient.Permissions.Add(Permissions.Prefixes.Scope + "api");
 
-            await applicationManager.CreateAsync(spaClient);
-            Console.WriteLine("[Configuration] OpenIddict client registered: sins-spa");
+                await applicationManager.CreateAsync(spaClient);
+                Console.WriteLine("[Configuration] OpenIddict client registered: sins-spa");
+            }
         }
 
         // Initialize default configuration

@@ -49,6 +49,25 @@ spec:
               value: http://+:80
             - name: ConnectionStrings__DefaultConnection
               value: Host=postgres;Database=dns_server;Username=postgres;Password=postgres
+            - name: Auth__Provider
+              value: Keycloak
+            - name: Keycloak__Authority
+              value: http://keycloak.sins-rd.svc.cluster.local:8080/realms/sins
+            - name: Keycloak__ClientId
+              value: sins-spa
+            - name: Keycloak__Scope
+              value: openid profile email offline_access
+            - name: Keycloak__RoleClaim
+              value: realm_access.roles
+            - name: Keycloak__AllowHttpInDevelopment
+              value: "true"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
