@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Rancher Desktop: build image, use context, deploy (PG + NodePort)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/deploy/rancher-desktop/deploy.sh"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "SINS_KUBE_CONTEXT": "rancher-desktop"
+        }
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

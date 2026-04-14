@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sins
+  namespace: sins-rd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sins
+  template:
+    metadata:
+      labels:
+        app: sins
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -U postgres -d dns_server; do
+                echo waiting for postgres; sleep 2;
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+      containers:
+        - name: sins
+          image: sins-rancher:local
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 80
+            - name: dns-udp
+              containerPort: 53
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+            - name: ASPNETCORE_URLS
+              value: http://+:80
+            - name: ConnectionStrings__DefaultConnection
+              value: Host=postgres;Database=dns_server;Username=postgres;Password=postgres
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - NET_BIND_SERVICE
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
