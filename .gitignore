@@ -9,3 +9,7 @@ package-build/
 *.deb
 .vscode/sins-debug.env
 sins-ui/.sins-vite-proxy
+
+# Vite build output is written to sins/wwwroot (see sins-ui/vite.config.ts). Do not commit bundles.
+sins/wwwroot/*
+!sins/wwwroot/.gitkeep

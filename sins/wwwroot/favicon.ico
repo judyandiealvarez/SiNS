@@ -1,5 +1,0 @@
-# This is a placeholder for favicon.ico
-# In practice, you would convert the SVG to ICO format using tools like:
-# - Online converters
-# - ImageMagick: convert favicon.svg -resize 16x16,32x32,48x48 favicon.ico
-# - Or use the SVG directly in modern browsers
