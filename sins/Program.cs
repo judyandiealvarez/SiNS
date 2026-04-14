@@ -141,7 +141,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Vite dev server proxies http://127.0.0.1:5000 — HTTPS redirection breaks /api from the SPA in Development.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("AllowAll");
 
 // Serve static files
@@ -151,6 +156,7 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 // Ensure database is created and initialize default configuration
 try

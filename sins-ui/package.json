@@ -1,0 +1,25 @@
+{
+  "name": "sins-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:stack": "concurrently -k -n api,ui -c blue,green \"dotnet run --project ../sins/sins.csproj\" \"vite\"",
+    "build": "vue-tsc -p tsconfig.app.json --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tabler/core": "^1.4.0",
+    "@tabler/icons-webfont": "^3.41.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.7.3",
+    "vite": "^6.0.11",
+    "vue-tsc": "^2.2.0"
+  }
+}

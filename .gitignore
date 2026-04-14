@@ -3,3 +3,9 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+sins-ui/node_modules/
+.DS_Store
+package-build/
+*.deb
+.vscode/sins-debug.env
+sins-ui/.sins-vite-proxy
