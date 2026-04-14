@@ -296,6 +296,12 @@ docker exec -i dns-postgres psql -U postgres dns_server < backup.sql
 - [ ] Implement rate limiting
 - [ ] Set up alerting
 
+## Rancher Desktop and DNSSEC (optional)
+
+If you use **Rancher Desktop** instead of plain Docker Compose, follow **[deploy/rancher-desktop/README.md](../deploy/rancher-desktop/README.md)** for build, apply, and in-cluster `dig` examples (TCP-first on macOS for large responses).
+
+For **authoritative DNSSEC** (enable zone, DS at parent, verify with `dig +dnssec`), see **[DNSSEC](dnssec.md)**.
+
 ## Next Steps
 
 Now that you have your DNS server running:
@@ -311,6 +317,7 @@ For detailed information on any topic, see the complete documentation:
 - [Installation Guide](installation.md)
 - [Web Interface Guide](web-interface.md)
 - [API Reference](api-reference.md)
+- [DNSSEC](dnssec.md)
 - [Architecture Documentation](architecture.md)
 - [Production Deployment](production-deployment.md)
 

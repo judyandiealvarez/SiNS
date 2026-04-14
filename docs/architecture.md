@@ -67,11 +67,12 @@ The DNS Engine is the core component responsible for handling DNS queries and re
 - **Response Generator**: Creates DNS responses
 - **Cache Manager**: Manages DNS response caching
 - **Recursive Resolver**: Resolves queries from upstream servers
+- **Authoritative DNSSEC**: EDNS0 **DO** handling, zone signing (ECDSAP256SHA256), RRSIG, NSEC, DNSKEY at apex; see [DNSSEC](dnssec.md)
 
 #### Key Features
 
 - **Protocol Support**: Full support for UDP and TCP DNS protocols
-- **Message Parsing**: Robust DNS message parsing and validation
+- **Message Parsing**: Robust DNS message parsing and validation (including EDNS0 OPT for DO and UDP payload size)
 - **Response Generation**: Proper DNS response formatting
 - **Error Handling**: Comprehensive error handling and logging
 
@@ -547,8 +548,8 @@ CREATE INDEX idx_users_email ON users(email);
 ### Planned Features
 
 #### Advanced DNS Features
-- **DNSSEC**: DNS Security Extensions
-- **DNS over HTTPS**: DoH support
+- **DNSSEC (authoritative)**: Implemented — see [dnssec.md](dnssec.md)
+- **DNS over HTTPS**: DoH support (planned)
 - **DNS over TLS**: DoT support
 - **GeoDNS**: Geographic DNS routing
 

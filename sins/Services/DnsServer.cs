@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using sins.Data;
 using sins.Models;
+using sins.Services.Dnssec;
 
 namespace sins.Services;
 
@@ -231,8 +232,34 @@ public class DnsServer : BackgroundService
     {
         try
         {
-            var dnsMessage = ParseDnsMessage(request);
+            DnsQueryParseResult? pq = null;
+            if (DnsQueryParser.TryParseDetailed(request, out var parsed))
+                pq = parsed;
+
+            var dnsMessage = pq != null
+                ? new DnsMessage
+                {
+                    TransactionId = pq.TransactionId,
+                    Name = pq.QName,
+                    Type = GetDnsTypeString(pq.QType)
+                }
+                : ParseDnsMessage(request);
             if (dnsMessage == null) return null;
+
+            if (pq == null)
+            {
+                pq = new DnsQueryParseResult
+                {
+                    TransactionId = dnsMessage.TransactionId,
+                    Flags = 0,
+                    QName = dnsMessage.Name,
+                    QType = GetDnsTypeUshort(dnsMessage.Type),
+                    QClass = DnsTypes.ClassIn,
+                    OffsetAfterQuestion = ComputeOffsetAfterQuestion(request),
+                    DnssecOk = false,
+                    ClientUdpPayloadSize = DnsQueryParser.DefaultUdpPayload
+                };
+            }
 
             _logger.LogInformation("DNS request from {RemoteEndPoint}: {Name} ({Type})", remoteEndPoint, dnsMessage.Name, dnsMessage.Type);
 
@@ -242,6 +269,29 @@ public class DnsServer : BackgroundService
             {
                 _logger.LogInformation("Cache hit for {Name} ({Type})", dnsMessage.Name, dnsMessage.Type);
                 return CreateResponseFromCache(request, cachedResponse);
+            }
+
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
+            var signedZones = await context.DnssecZones.AsNoTracking().Where(z => z.Enabled).ToListAsync(stoppingToken);
+            var coveringZone = DnsCanonical.FindCoveringZone(dnsMessage.Name, signedZones);
+            var wantDnssec = coveringZone != null && pq.DnssecOk;
+
+            async Task<byte[]?> TrySignedAsync(DnssecAuthoritativeKind kind, DnsRecord? record)
+            {
+                if (!wantDnssec) return null;
+                try
+                {
+                    using var mat = DnssecZoneKeyMaterial.Load(coveringZone!);
+                    var load = await DnssecZoneDataLoader.LoadAsync(context, coveringZone!.Apex, stoppingToken);
+                    return DnssecAuthoritativeResponseBuilder.TryBuild(request, pq, kind, record, coveringZone, mat,
+                        load.SortedOwners, load.TypesByOwner, isTcp);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "DNSSEC signing failed for {Name}", dnsMessage.Name);
+                    return null;
+                }
             }
 
             // If Haproxy is set and query is A, check Kubernetes Ingress hosts and return Haproxy IP if matched
@@ -259,16 +309,74 @@ public class DnsServer : BackgroundService
                         Value = _haproxyIp,
                         Ttl = 60
                     };
+                    var signedIngress = await TrySignedAsync(DnssecAuthoritativeKind.PositiveAnswer, syntheticRecord);
+                    if (signedIngress != null) return signedIngress;
                     return CreateAuthoritativeResponse(request, dnsMessage, syntheticRecord);
                 }
             }
 
+            var apex = coveringZone != null ? DnsCanonical.NormalizeOwner(coveringZone.Apex) : string.Empty;
+            if (coveringZone != null && pq.QType == DnsTypes.Dnskey &&
+                string.Equals(DnsCanonical.NormalizeOwner(dnsMessage.Name), apex, StringComparison.Ordinal))
+            {
+                var dnskeyAns = await TrySignedAsync(DnssecAuthoritativeKind.DnskeyQuery, null);
+                if (dnskeyAns != null)
+                {
+                    _logger.LogInformation("Authoritative DNSKEY (signed) for {Name}", dnsMessage.Name);
+                    return dnskeyAns;
+                }
+
+                try
+                {
+                    using var mat = DnssecZoneKeyMaterial.Load(coveringZone);
+                    var unsignedKey = DnssecAuthoritativeResponseBuilder.BuildUnsignedDnskey(request, pq, coveringZone,
+                        mat);
+                    if (unsignedKey != null)
+                    {
+                        _logger.LogInformation("Authoritative DNSKEY (unsigned) for {Name}", dnsMessage.Name);
+                        return unsignedKey;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "DNSKEY response failed for {Name}", dnsMessage.Name);
+                }
+            }
+
             // Check authoritative records
-            var authoritativeResponse = await GetAuthoritativeResponseAsync(dnsMessage);
+            var authoritativeResponse = await GetAuthoritativeResponseAsync(dnsMessage, context);
             if (authoritativeResponse != null)
             {
                 _logger.LogInformation("Authoritative response for {Name} ({Type})", dnsMessage.Name, dnsMessage.Type);
+                var signed = await TrySignedAsync(DnssecAuthoritativeKind.PositiveAnswer, authoritativeResponse);
+                if (signed != null) return signed;
                 return CreateAuthoritativeResponse(request, dnsMessage, authoritativeResponse);
+            }
+
+            if (coveringZone != null && DnsCanonical.NameUnderApex(dnsMessage.Name, coveringZone.Apex))
+            {
+                var hasName = await context.DnsRecords.AsNoTracking()
+                    .AnyAsync(r => r.Name == dnsMessage.Name, stoppingToken);
+                if (!hasName)
+                {
+                    var nx = await TrySignedAsync(DnssecAuthoritativeKind.NxDomain, null);
+                    if (nx != null)
+                    {
+                        _logger.LogInformation("Authoritative signed NXDOMAIN for {Name}", dnsMessage.Name);
+                        return nx;
+                    }
+
+                    return CreateNxDomainResponse(request);
+                }
+
+                var nodata = await TrySignedAsync(DnssecAuthoritativeKind.NoData, null);
+                if (nodata != null)
+                {
+                    _logger.LogInformation("Authoritative signed NODATA for {Name} ({Type})", dnsMessage.Name, dnsMessage.Type);
+                    return nodata;
+                }
+
+                return CreateNoDataResponse(request);
             }
 
             // Query upstream servers
@@ -289,6 +397,47 @@ public class DnsServer : BackgroundService
             return CreateErrorResponse(request);
         }
     }
+
+    private static int ComputeOffsetAfterQuestion(byte[] data)
+    {
+        if (data.Length < 16) return data.Length;
+        var pos = 12;
+        while (pos < data.Length)
+        {
+            var len = data[pos];
+            if (len == 0)
+            {
+                pos++;
+                break;
+            }
+
+            if ((len & 0xC0) == 0xC0)
+            {
+                pos += 2;
+                break;
+            }
+
+            pos++;
+            if (pos + len > data.Length) return data.Length;
+            pos += len;
+        }
+
+        return pos + 4 <= data.Length ? pos + 4 : data.Length;
+    }
+
+    private static ushort GetDnsTypeUshort(string type) =>
+        type.ToUpperInvariant() switch
+        {
+            "A" => DnsTypes.A,
+            "NS" => DnsTypes.Ns,
+            "CNAME" => DnsTypes.Cname,
+            "SOA" => DnsTypes.Soa,
+            "MX" => DnsTypes.Mx,
+            "TXT" => DnsTypes.Txt,
+            "AAAA" => 28,
+            "DNSKEY" => DnsTypes.Dnskey,
+            _ => ushort.TryParse(type, out var n) ? n : (ushort)0
+        };
 
     private async Task<byte[]?> GetCachedResponseAsync(string name, string type)
     {
@@ -314,15 +463,10 @@ public class DnsServer : BackgroundService
         return null;
     }
 
-    private async Task<DnsRecord?> GetAuthoritativeResponseAsync(DnsMessage dnsMessage)
+    private static async Task<DnsRecord?> GetAuthoritativeResponseAsync(DnsMessage dnsMessage, DnsContext context)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
-
-        var record = await context.DnsRecords
-                            .FirstOrDefaultAsync(r => r.Name == dnsMessage.Name && r.Type == dnsMessage.Type);
-
-        return record;
+        return await context.DnsRecords
+            .FirstOrDefaultAsync(r => r.Name == dnsMessage.Name && r.Type == dnsMessage.Type);
     }
 
     private async Task<(byte[]? response, string? server)> QueryUpstreamServersAsync(DnsMessage dnsMessage, CancellationToken stoppingToken)
@@ -549,6 +693,11 @@ public class DnsServer : BackgroundService
             15 => "MX",
             16 => "TXT",
             28 => "AAAA",
+            41 => "OPT",
+            43 => "DS",
+            46 => "RRSIG",
+            47 => "NSEC",
+            48 => "DNSKEY",
             _ => type.ToString()
         };
     }
@@ -583,20 +732,7 @@ public class DnsServer : BackgroundService
         return request.ToArray();
     }
 
-    private int GetDnsTypeInt(string type)
-    {
-        return type.ToUpper() switch
-        {
-            "A" => 1,
-            "NS" => 2,
-            "CNAME" => 5,
-            "SOA" => 6,
-            "MX" => 15,
-            "TXT" => 16,
-            "AAAA" => 28,
-            _ => 1
-        };
-    }
+    private int GetDnsTypeInt(string type) => DnsRecordTypeWire.ToWireType(type);
 
     private byte[] CreateResponseFromCache(byte[] request, byte[] cachedResponse)
     {
@@ -687,6 +823,14 @@ public class DnsServer : BackgroundService
         var response = (byte[])request.Clone();
         response[2] |= 0x80; // Response flag
         response[3] = 0x03; // NXDOMAIN
+        return response;
+    }
+
+    private static byte[] CreateNoDataResponse(byte[] request)
+    {
+        var response = (byte[])request.Clone();
+        response[2] = (byte)(0x84 | (request[2] & 0x01));
+        response[3] = 0x80;
         return response;
     }
 

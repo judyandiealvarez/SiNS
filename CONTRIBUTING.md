@@ -280,9 +280,11 @@ docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
 
 ### Manual Testing
 
+Use the **host and port** your SiNS instance actually listens on (Docker Compose often maps **53/udp** to localhost; Kubernetes may use **ClusterIP**, **NodePort**, or in-cluster `dig` — see [deploy/rancher-desktop/README.md](deploy/rancher-desktop/README.md) and [DNSSEC](docs/dnssec.md)). For **DNSSEC** APIs and verification, see [API Reference — DNSSEC](docs/api-reference.md#dnssec-zone-endpoints) and [docs/dnssec.md](docs/dnssec.md).
+
 #### DNS Functionality
 ```bash
-# Test DNS resolution
+# Test DNS resolution (add -p <port> if not 53)
 dig @localhost example.com
 
 # Test with nslookup

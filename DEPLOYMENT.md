@@ -321,6 +321,15 @@ docker-compose logs dns-server | grep "DNS query"
 - DNS query statistics
 - Service health status
 
+## Rancher Desktop (Kubernetes)
+
+For local k3s on **Rancher Desktop**, use the manifests and script under **`deploy/rancher-desktop/`**:
+
+- **Guide**: [deploy/rancher-desktop/README.md](deploy/rancher-desktop/README.md) (build with **nerdctl** `k8s.io`, apply YAML, NodePorts, in-cluster `dig`).
+- **DNSSEC**: [docs/dnssec.md](docs/dnssec.md).
+
+After changing SiNS code you must **rebuild the image** (`nerdctl` / `deploy.sh`) and **`kubectl rollout restart deployment/sins -n sins-rd`** before DNS behaviour reflects the new build. Confirm NodePorts with **`kubectl get svc sins -n sins-rd`** (defaults are documented in-repo but are not a substitute for checking the live object).
+
 ## Support
 
 For issues and questions:

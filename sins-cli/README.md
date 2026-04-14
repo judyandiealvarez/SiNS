@@ -11,6 +11,8 @@ A command-line interface for managing the SiNS DNS Server via its REST API.
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Modern CLI**: Built with System.CommandLine for excellent user experience
 
+**DNSSEC zones** (create zone, DS export, etc.) are not covered by this CLI yet; use the REST API documented in **[docs/dnssec.md](../docs/dnssec.md)** and **[docs/api-reference.md](../docs/api-reference.md#dnssec-zone-endpoints)**.
+
 ## Installation
 
 ### Prerequisites

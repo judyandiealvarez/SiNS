@@ -11,6 +11,7 @@ This guide covers using the DNS Server web interface for managing DNS records, c
 - [Cache Management](#cache-management)
 - [User Management](#user-management)
 - [Settings](#settings)
+- [DNSSEC (REST API)](#dnssec-rest-api)
 - [Navigation](#navigation)
 - [Troubleshooting](#troubleshooting)
 
@@ -371,6 +372,10 @@ In Keycloak mode, users created in SINS are not automatically provisioned in Key
 - **Validation errors**: Displayed immediately
 - **Save prevention**: Invalid settings cannot be saved
 - **Error messages**: Clear explanation of issues
+
+## DNSSEC (REST API)
+
+**Authoritative DNSSEC** (zone keys, enable/disable, DS export for the parent zone) is configured through the **`/api/dnssec/*`** endpoints, not through a dedicated screen in the web UI. Use the API (curl, Postman, or your own tooling) as described in **[DNSSEC](dnssec.md)** and the **[API reference — DNSSEC](api-reference.md#dnssec-zone-endpoints)** section.
 
 ## Navigation
 

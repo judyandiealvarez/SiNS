@@ -15,6 +15,7 @@ public class DnsContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<ServerConfig> ServerConfigs { get; set; }
     public DbSet<DomainUpstreamMapping> DomainUpstreamMappings { get; set; }
+    public DbSet<DnssecZone> DnssecZones { get; set; }
     public DbSet<OpenIddictEntityFrameworkCoreApplication> OpenIddictApplications { get; set; }
     public DbSet<OpenIddictEntityFrameworkCoreAuthorization> OpenIddictAuthorizations { get; set; }
     public DbSet<OpenIddictEntityFrameworkCoreScope> OpenIddictScopes { get; set; }
@@ -68,6 +69,15 @@ public class DnsContext : DbContext
             entity.HasIndex(e => e.Domain).IsUnique();
             entity.Property(e => e.Domain).IsRequired();
             entity.Property(e => e.UpstreamServer).IsRequired();
+        });
+
+        modelBuilder.Entity<DnssecZone>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Apex).IsUnique();
+            entity.Property(e => e.Apex).IsRequired();
+            entity.Property(e => e.KskPrivateKeyPem).IsRequired();
+            entity.Property(e => e.ZskPrivateKeyPem).IsRequired();
         });
 
         modelBuilder.UseOpenIddict();

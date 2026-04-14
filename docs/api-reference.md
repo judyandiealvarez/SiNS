@@ -10,6 +10,7 @@ This document provides a complete reference for the DNS Server API endpoints.
 - [Error Handling](#error-handling)
 - [Authentication Endpoints](#authentication-endpoints)
 - [DNS Management Endpoints](#dns-management-endpoints)
+- [DNSSEC zone endpoints](#dnssec-zone-endpoints)
 - [Cache Management Endpoints](#cache-management-endpoints)
 - [Configuration Endpoints](#configuration-endpoints)
 - [Statistics Endpoints](#statistics-endpoints)
@@ -363,6 +364,61 @@ Delete a DNS record (Admin only).
   "message": "DNS record deleted successfully"
 }
 ```
+
+## DNSSEC zone endpoints
+
+Base path: **`/api/dnssec`** (JWT required for all routes below).
+
+### List zones
+
+**GET** `/api/dnssec/zones`
+
+Returns zone metadata (no private key material).
+
+### Get zone
+
+**GET** `/api/dnssec/zones/{id}`
+
+### Create zone (generate keys)
+
+**POST** `/api/dnssec/zones` — **Admin only**
+
+#### Request body
+
+```json
+{
+  "apex": "example.net",
+  "generateKeys": true
+}
+```
+
+Creates an enabled zone with ECDSA P-256 KSK/ZSK (PKCS#8 PEM stored in the database). Only `generateKeys: true` is supported in the current API.
+
+### Update zone
+
+**PUT** `/api/dnssec/zones/{id}` — **Admin only**
+
+```json
+{ "enabled": false }
+```
+
+### Delete zone
+
+**DELETE** `/api/dnssec/zones/{id}` — **Admin only**
+
+### DS record (parent delegation)
+
+**GET** `/api/dnssec/zones/{id}/ds` — **Admin only**
+
+Returns `keyTag`, `algorithm`, `digestType` (SHA-256 = 2), `digestHex`, and a ready-to-paste **`dsRecordLine`** for the parent zone.
+
+### Public DNSKEY material
+
+**GET** `/api/dnssec/zones/{id}/dnskeys` — **Admin only**
+
+Returns `kskPublicPem` and `zskPublicPem` (SPKI).
+
+Operational notes: publish **DS** at the parent; protect PEM in the database. See [DNSSEC](dnssec.md).
 
 ## Cache Management Endpoints
 

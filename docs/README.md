@@ -27,6 +27,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 ### Technical Reference
 - [API Reference](api-reference.md) - Complete API documentation
 - [Architecture](architecture.md) - SiNS system architecture and design
+- [DNSSEC (authoritative)](dnssec.md) - Zone signing, API, verification, Rancher Desktop notes
 - [IPv6 Support](ipv6-support.md) - IPv6 DNS server capabilities
 - [Database Schema](database-schema.md) - Database structure and relationships
 - [Network Configuration](network-config.md) - Network setup and static IPs
@@ -47,6 +48,7 @@ Welcome to the SiNS (Simple Name Server) documentation. **SiNS** stands for **[S
 - **Caching**: Intelligent DNS caching with configurable TTL
 - **Real-time Configuration**: Database-driven configuration with immediate effect
 - **Production Ready**: Static IP addressing and proper service management
+- **Authoritative DNSSEC**: See [DNSSEC](dnssec.md)
 
 ### Architecture
 ```
@@ -214,7 +216,7 @@ open http://localhost
 1. Check the [Troubleshooting Guide](troubleshooting.md)
 2. Review [Common Issues](common-issues.md)
 3. Check the logs: `docker-compose logs`
-4. Test DNS resolution: `dig @127.0.0.1 google.com`
+4. Test DNS resolution with `dig` against the **IP:port** your deployment uses (Compose may use `127.0.0.1`; Kubernetes may differ — see [DNSSEC](dnssec.md) and [Rancher Desktop deploy](../deploy/rancher-desktop/README.md))
 
 ### Community
 - GitHub Issues: Report bugs and request features

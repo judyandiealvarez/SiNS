@@ -15,12 +15,15 @@ public class DnsController : ControllerBase
 {
     private readonly DnsContext _context;
     private readonly IConfigurationService _configService;
+    private readonly IDnssecCatalog _dnssecCatalog;
     private readonly ILogger<DnsController> _logger;
 
-    public DnsController(DnsContext context, IConfigurationService configService, ILogger<DnsController> logger)
+    public DnsController(DnsContext context, IConfigurationService configService, IDnssecCatalog dnssecCatalog,
+        ILogger<DnsController> logger)
     {
         _context = context;
         _configService = configService;
+        _dnssecCatalog = dnssecCatalog;
         _logger = logger;
         _logger.LogInformation("[DEBUG] DnsController constructor called");
     }
@@ -87,6 +90,7 @@ public class DnsController : ControllerBase
             _context.DnsRecords.Add(record);
             _logger.LogInformation($"[DEBUG] Saving changes to database");
             await _context.SaveChangesAsync();
+            await InvalidateDnssecZonesAsync();
             _logger.LogInformation($"[DEBUG] Record created successfully with ID: {record.Id}");
             return CreatedAtAction(nameof(GetRecord), new { id = record.Id }, record);
         }
@@ -130,6 +134,7 @@ public class DnsController : ControllerBase
         record.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await InvalidateDnssecZonesAsync();
 
         return Ok(record);
     }
@@ -148,8 +153,16 @@ public class DnsController : ControllerBase
         // Real delete - remove the record from database
         _context.DnsRecords.Remove(record);
         await _context.SaveChangesAsync();
+        await InvalidateDnssecZonesAsync();
 
         return NoContent();
+    }
+
+    private async Task InvalidateDnssecZonesAsync()
+    {
+        var apexes = await _context.DnssecZones.Select(z => z.Apex).ToListAsync();
+        foreach (var a in apexes)
+            _dnssecCatalog.InvalidateZone(a);
     }
 
     [HttpGet("cache")]

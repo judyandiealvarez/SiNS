@@ -14,6 +14,7 @@
 - **Caching**: Intelligent DNS caching with configurable TTL
 - **Real-time Configuration**: Database-driven configuration with immediate effect
 - **Production Ready**: Static IP addressing and proper service management
+- **Authoritative DNSSEC**: ECDSAP256SHA256 (13), NSEC, RRSIG when clients set EDNS **DO**; DS export API ([docs/dnssec.md](docs/dnssec.md))
 
 ## Architecture
 
@@ -130,6 +131,16 @@ The deployment script will:
 ### Health Check
 - `GET /api/dns/health` - Service health check
 
+### DNSSEC zones (authenticated API)
+- `GET /api/dnssec/zones` — list zones
+- `POST /api/dnssec/zones` — create zone + keys (Admin)
+- `PUT /api/dnssec/zones/{id}` — enable/disable (Admin)
+- `DELETE /api/dnssec/zones/{id}` — delete zone (Admin)
+- `GET /api/dnssec/zones/{id}/ds` — DS for parent registrar (Admin)
+- `GET /api/dnssec/zones/{id}/dnskeys` — public keys PEM (Admin)
+
+See **[docs/dnssec.md](docs/dnssec.md)** and **[deploy/rancher-desktop/README.md](deploy/rancher-desktop/README.md)** for verification and Rancher Desktop testing.
+
 ## Web Interface
 
 ### Features
@@ -199,6 +210,8 @@ curl http://localhost/api/dns/health
 
 # Backend tests
 dotnet test
+
+# DNSSEC / Rancher Desktop: rebuild image, roll Deployment, then dig (see docs/dnssec.md)
 
 # UI unit tests
 cd sins-ui && npm install && npm run test:unit

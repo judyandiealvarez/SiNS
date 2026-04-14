@@ -320,6 +320,10 @@ dotnet run
 
 When running SiNS inside a Kubernetes cluster, you can enable **Ingress-backed DNS resolution**: the server checks all Ingress resources in all namespaces and, if the requested DNS name matches any Ingress host, responds with a configurable **HAProxy IP** (A record). This is useful when HAProxy fronts the cluster and clients need to resolve ingress hostnames to the HAProxy address.
 
+### Rancher Desktop (local cluster)
+
+For a **Rancher Desktop** reference deployment (image build with `nerdctl`, apply manifests, NodePort, in-cluster `dig`), see **[deploy/rancher-desktop/README.md](../deploy/rancher-desktop/README.md)**. **Authoritative DNSSEC** (zone API, DS export, `dig +dnssec` checks) is documented in **[DNSSEC](dnssec.md)**.
+
 ### HAPROXY setting
 
 - **Environment variable (at install/startup)**: Set `HAPROXY` to the IPv4 address of your HAProxy (e.g. `10.0.0.5`). The app will persist this in its configuration and use it for the ingress lookup path.

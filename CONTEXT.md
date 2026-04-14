@@ -41,6 +41,7 @@ SiNS is a hybrid authoritative and recursive DNS server that combines:
 - **Production Ready**: Static IP addressing and proper service management
 - **HTTPS Support**: HAProxy for SSL termination
 - **Version Display**: Build number integration in web UI
+- **Authoritative DNSSEC**: Zone signing (algorithm 13), NSEC, DS export API ([docs/dnssec.md](docs/dnssec.md))
 
 ---
 
@@ -93,6 +94,7 @@ SiNS is a hybrid authoritative and recursive DNS server that combines:
 #### 2. Web API (Controllers/)
 - **AuthController**: JWT authentication and user management
 - **DnsController**: DNS record CRUD operations and cache management
+- **DnssecController**: DNSSEC zone CRUD, DS and DNSKEY export (`/api/dnssec/*`)
 - **Configuration Controller**: Server configuration management
 
 #### 3. Web Interface (wwwroot/)
@@ -1018,8 +1020,8 @@ git push origin cli-v1.0.0
 ### Planned Enhancements
 
 #### Advanced DNS Features
-- **DNSSEC**: DNS Security Extensions
-- **DNS over HTTPS**: DoH support
+- **DNSSEC (authoritative)**: Implemented — see [docs/dnssec.md](docs/dnssec.md)
+- **DNS over HTTPS**: DoH support (planned)
 - **DNS over TLS**: DoT support
 - **GeoDNS**: Geographic DNS routing
 
