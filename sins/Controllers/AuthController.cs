@@ -1,9 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 using sins.Data;
 using sins.Services;
-using BCrypt.Net;
+using System.Security.Claims;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace sins.Controllers;
 
@@ -20,34 +27,113 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    [HttpPost("~/connect/token")]
+    [Produces("application/json")]
+    public async Task<IActionResult> Exchange(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+        var request = HttpContext.GetOpenIddictServerRequest()
+            ?? throw new InvalidOperationException("OpenIddict request cannot be retrieved.");
+
+        if (request.IsPasswordGrantType())
         {
-            return BadRequest(new { message = "Username and password are required" });
+            var username = request.Username ?? string.Empty;
+            var password = request.Password ?? string.Empty;
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == username && u.IsActive, cancellationToken);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            {
+                return Forbid(
+                    new AuthenticationProperties(new Dictionary<string, string?>
+                    {
+                        ["error"] = Errors.InvalidGrant,
+                        ["error_description"] = "Invalid username or password."
+                    }),
+                    OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            var principal = BuildPrincipal(user, request.GetScopes());
+            return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
-
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (request.IsRefreshTokenGrantType())
         {
-            return Unauthorized(new { message = "Invalid username or password" });
+            var result = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            if (!result.Succeeded || result.Principal == null)
+            {
+                return Forbid(
+                    new AuthenticationProperties(new Dictionary<string, string?>
+                    {
+                        ["error"] = Errors.InvalidGrant,
+                        ["error_description"] = "The refresh token is no longer valid."
+                    }),
+                    OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            var subject = result.Principal.GetClaim(Claims.Subject);
+            if (!int.TryParse(subject, out var userId))
+            {
+                return Forbid(
+                    new AuthenticationProperties(new Dictionary<string, string?>
+                    {
+                        ["error"] = Errors.InvalidGrant,
+                        ["error_description"] = "The refresh token subject is invalid."
+                    }),
+                    OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive, cancellationToken);
+            if (user == null)
+            {
+                return Forbid(
+                    new AuthenticationProperties(new Dictionary<string, string?>
+                    {
+                        ["error"] = Errors.InvalidGrant,
+                        ["error_description"] = "The user account is no longer available."
+                    }),
+                    OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            var scopes = request.GetScopes().Any()
+                ? request.GetScopes()
+                : result.Principal.GetScopes();
+
+            var principal = BuildPrincipal(user, scopes);
+            return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
-        var token = await _authService.AuthenticateAsync(request.Username, request.Password);
+        return BadRequest(new
+        {
+            error = Errors.UnsupportedGrantType,
+            error_description = "Only password and refresh_token grants are supported."
+        });
+    }
 
+    [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
+    [HttpGet("~/connect/userinfo")]
+    public IActionResult UserInfo()
+    {
         return Ok(new
         {
-            token,
-            user = new
-            {
-                id = user.Id,
-                username = user.Username,
-                email = user.Email,
-                role = user.Role
-            }
+            sub = User.FindFirst(Claims.Subject)?.Value,
+            preferred_username = User.FindFirst(Claims.PreferredUsername)?.Value,
+            name = User.FindFirst(Claims.Name)?.Value,
+            email = User.FindFirst(Claims.Email)?.Value,
+            role = User.FindFirst(Claims.Role)?.Value
+        });
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public IActionResult Me()
+    {
+        return Ok(new
+        {
+            username = User.FindFirst(Claims.PreferredUsername)?.Value ?? User.Identity?.Name ?? string.Empty,
+            email = User.FindFirst(Claims.Email)?.Value ?? string.Empty,
+            role = User.FindFirst(Claims.Role)?.Value ?? "User"
         });
     }
 
@@ -78,11 +164,10 @@ public class AuthController : ControllerBase
             .Where(u => u.IsActive)
             .Select(u => new
             {
-                u.Id,
-                u.Username,
-                u.Email,
-                u.Role,
-                u.CreatedAt
+                id = u.Id,
+                username = u.Username,
+                email = u.Email,
+                role = u.Role
             })
             .ToListAsync();
 
@@ -94,7 +179,6 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> DeleteUser(int id)
     {
         var user = await _context.Users.FindAsync(id);
-
         if (user == null)
         {
             return NotFound();
@@ -102,15 +186,45 @@ public class AuthController : ControllerBase
 
         user.IsActive = false;
         await _context.SaveChangesAsync();
-
         return NoContent();
     }
-}
 
-public class LoginRequest
-{
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    private static ClaimsPrincipal BuildPrincipal(sins.Models.User user, IEnumerable<string> requestedScopes)
+    {
+        var identity = new ClaimsIdentity(
+            TokenValidationParameters.DefaultAuthenticationType,
+            Claims.Name,
+            Claims.Role);
+
+        identity.SetClaim(Claims.Subject, user.Id.ToString());
+        identity.SetClaim(Claims.PreferredUsername, user.Username);
+        identity.SetClaim(Claims.Name, user.Username);
+        identity.SetClaim(Claims.Email, user.Email);
+        identity.SetClaim(Claims.Role, user.Role);
+
+        var principal = new ClaimsPrincipal(identity);
+        var scopes = requestedScopes.ToHashSet(StringComparer.Ordinal);
+        if (scopes.Count == 0)
+        {
+            scopes = new HashSet<string>(new[] { Scopes.OpenId, Scopes.Profile, Scopes.Email, "api" }, StringComparer.Ordinal);
+        }
+        principal.SetScopes(scopes);
+        principal.SetResources("sins-api");
+
+        principal.SetDestinations(static claim =>
+        {
+            return claim.Type switch
+            {
+                Claims.Subject or Claims.PreferredUsername or Claims.Name or Claims.Role
+                    => new[] { Destinations.AccessToken, Destinations.IdentityToken },
+                Claims.Email
+                    => new[] { Destinations.AccessToken, Destinations.IdentityToken },
+                _ => new[] { Destinations.AccessToken }
+            };
+        });
+
+        return principal;
+    }
 }
 
 public class RegisterRequest

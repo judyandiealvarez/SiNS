@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.EntityFrameworkCore.Models;
 using sins.Models;
 
 namespace sins.Data;
@@ -14,6 +15,10 @@ public class DnsContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<ServerConfig> ServerConfigs { get; set; }
     public DbSet<DomainUpstreamMapping> DomainUpstreamMappings { get; set; }
+    public DbSet<OpenIddictEntityFrameworkCoreApplication> OpenIddictApplications { get; set; }
+    public DbSet<OpenIddictEntityFrameworkCoreAuthorization> OpenIddictAuthorizations { get; set; }
+    public DbSet<OpenIddictEntityFrameworkCoreScope> OpenIddictScopes { get; set; }
+    public DbSet<OpenIddictEntityFrameworkCoreToken> OpenIddictTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,5 +69,7 @@ public class DnsContext : DbContext
             entity.Property(e => e.Domain).IsRequired();
             entity.Property(e => e.UpstreamServer).IsRequired();
         });
+
+        modelBuilder.UseOpenIddict();
     }
 }

@@ -1,11 +1,12 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
 using sins.Data;
 using sins.Models;
 using sins.Services;
-using System.Text;
+using System.Data;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,7 +71,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "DNS Server API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme",
+        Description = "OAuth2 access token using the Bearer scheme",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -94,24 +95,60 @@ builder.Services.AddSwaggerGen(c =>
 
 // Configure Entity Framework
 builder.Services.AddDbContext<DnsContext>(options =>
-    options.UseNpgsql(connectionString ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.")));
+{
+    options.UseNpgsql(connectionString ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured."));
+    options.UseOpenIddict();
+});
 
-// Configure Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddOpenIddict()
+    .AddCore(options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "your-secret-key-here"))
-        };
+        options.UseEntityFrameworkCore()
+            .UseDbContext<DnsContext>();
+    })
+    .AddServer(options =>
+    {
+        options.SetTokenEndpointUris("/connect/token");
+        options.SetUserInfoEndpointUris("/connect/userinfo");
+        options.SetRevocationEndpointUris("/connect/revocation");
+        options.SetIntrospectionEndpointUris("/connect/introspect");
+
+        options.AllowPasswordFlow();
+        options.AllowRefreshTokenFlow();
+        options.AcceptAnonymousClients();
+
+        options.RegisterScopes(
+            Scopes.OpenId,
+            Scopes.Profile,
+            Scopes.Email,
+            Scopes.OfflineAccess,
+            "api");
+
+        options.SetAccessTokenLifetime(TimeSpan.FromHours(24));
+        options.SetRefreshTokenLifetime(TimeSpan.FromDays(7));
+        options.DisableAccessTokenEncryption();
+
+        options.AddEphemeralEncryptionKey()
+            .AddEphemeralSigningKey();
+
+        options.UseAspNetCore()
+            .EnableTokenEndpointPassthrough()
+            .EnableUserInfoEndpointPassthrough()
+            .EnableStatusCodePagesIntegration()
+            .DisableTransportSecurityRequirement();
+    })
+    .AddValidation(options =>
+    {
+        options.UseLocalServer();
+        options.UseAspNetCore();
     });
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+});
 
 builder.Services.AddAuthorization();
 
@@ -165,6 +202,7 @@ try
     {
     var context = scope.ServiceProvider.GetRequiredService<DnsContext>();
     context.Database.EnsureCreated();
+    await EnsureOpenIddictSchemaAsync(context);
 
     // Create default admin user if no users exist
     if (!context.Users.Any())
@@ -172,6 +210,32 @@ try
             var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
             await authService.CreateUserAsync("admin", "admin123", "admin@example.com", "Admin");
             Console.WriteLine("Default admin user created: admin / admin123");
+        }
+
+        // Register the SPA client used by the embedded OAuth2 server.
+        var applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        if (await applicationManager.FindByClientIdAsync("sins-spa") == null)
+        {
+            var spaClient = new OpenIddictApplicationDescriptor
+            {
+                ClientId = "sins-spa",
+                ConsentType = ConsentTypes.Explicit,
+                DisplayName = "SINS UI SPA",
+                ClientType = ClientTypes.Public
+            };
+
+            spaClient.Permissions.Add(Permissions.Endpoints.Token);
+            spaClient.Permissions.Add(Permissions.Endpoints.Revocation);
+            spaClient.Permissions.Add(Permissions.GrantTypes.Password);
+            spaClient.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OpenId);
+            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Profile);
+            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.Email);
+            spaClient.Permissions.Add(Permissions.Prefixes.Scope + Scopes.OfflineAccess);
+            spaClient.Permissions.Add(Permissions.Prefixes.Scope + "api");
+
+            await applicationManager.CreateAsync(spaClient);
+            Console.WriteLine("[Configuration] OpenIddict client registered: sins-spa");
         }
 
         // Initialize default configuration
@@ -255,3 +319,107 @@ catch (Exception ex)
 }
 
 app.Run();
+
+static async Task EnsureOpenIddictSchemaAsync(DnsContext context)
+{
+    // EnsureCreated() does not add new tables when the DB already has any table.
+    // Existing installs need this bootstrap when OpenIddict is introduced later.
+    var connection = context.Database.GetDbConnection();
+    if (connection.State != ConnectionState.Open)
+    {
+        await connection.OpenAsync();
+    }
+
+    await using var checkCmd = connection.CreateCommand();
+    checkCmd.CommandText = "SELECT to_regclass('public.\"OpenIddictApplications\"') IS NOT NULL;";
+    var existsObj = await checkCmd.ExecuteScalarAsync();
+    var hasOpenIddictSchema = existsObj is bool b && b;
+    if (hasOpenIddictSchema)
+    {
+        return;
+    }
+
+    await context.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE IF NOT EXISTS "OpenIddictApplications" (
+            "Id" text NOT NULL,
+            "ApplicationType" character varying(50),
+            "ClientId" character varying(100),
+            "ClientSecret" text,
+            "ClientType" character varying(50),
+            "ConcurrencyToken" character varying(50),
+            "ConsentType" character varying(50),
+            "DisplayName" text,
+            "DisplayNames" text,
+            "JsonWebKeySet" text,
+            "Permissions" text,
+            "PostLogoutRedirectUris" text,
+            "Properties" text,
+            "RedirectUris" text,
+            "Requirements" text,
+            "Settings" text,
+            CONSTRAINT "PK_OpenIddictApplications" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "OpenIddictScopes" (
+            "Id" text NOT NULL,
+            "ConcurrencyToken" character varying(50),
+            "Description" text,
+            "Descriptions" text,
+            "DisplayName" text,
+            "DisplayNames" text,
+            "Name" character varying(200),
+            "Properties" text,
+            "Resources" text,
+            CONSTRAINT "PK_OpenIddictScopes" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "OpenIddictAuthorizations" (
+            "Id" text NOT NULL,
+            "ApplicationId" text,
+            "ConcurrencyToken" character varying(50),
+            "CreationDate" timestamp with time zone,
+            "Properties" text,
+            "Scopes" text,
+            "Status" character varying(50),
+            "Subject" character varying(400),
+            "Type" character varying(50),
+            CONSTRAINT "PK_OpenIddictAuthorizations" PRIMARY KEY ("Id"),
+            CONSTRAINT "FK_OpenIddictAuthorizations_OpenIddictApplications_ApplicationId"
+                FOREIGN KEY ("ApplicationId") REFERENCES "OpenIddictApplications" ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "OpenIddictTokens" (
+            "Id" text NOT NULL,
+            "ApplicationId" text,
+            "AuthorizationId" text,
+            "ConcurrencyToken" character varying(50),
+            "CreationDate" timestamp with time zone,
+            "ExpirationDate" timestamp with time zone,
+            "Payload" text,
+            "Properties" text,
+            "RedemptionDate" timestamp with time zone,
+            "ReferenceId" character varying(100),
+            "Status" character varying(50),
+            "Subject" character varying(400),
+            "Type" character varying(150),
+            CONSTRAINT "PK_OpenIddictTokens" PRIMARY KEY ("Id"),
+            CONSTRAINT "FK_OpenIddictTokens_OpenIddictApplications_ApplicationId"
+                FOREIGN KEY ("ApplicationId") REFERENCES "OpenIddictApplications" ("Id"),
+            CONSTRAINT "FK_OpenIddictTokens_OpenIddictAuthorizations_AuthorizationId"
+                FOREIGN KEY ("AuthorizationId") REFERENCES "OpenIddictAuthorizations" ("Id")
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpenIddictApplications_ClientId" ON "OpenIddictApplications" ("ClientId");
+        CREATE INDEX IF NOT EXISTS "IX_OpenIddictAuthorizations_ApplicationId_Status_Subject_Type"
+            ON "OpenIddictAuthorizations" ("ApplicationId", "Status", "Subject", "Type");
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpenIddictScopes_Name" ON "OpenIddictScopes" ("Name");
+        CREATE INDEX IF NOT EXISTS "IX_OpenIddictTokens_ApplicationId_Status_Subject_Type"
+            ON "OpenIddictTokens" ("ApplicationId", "Status", "Subject", "Type");
+        CREATE INDEX IF NOT EXISTS "IX_OpenIddictTokens_AuthorizationId" ON "OpenIddictTokens" ("AuthorizationId");
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpenIddictTokens_ReferenceId" ON "OpenIddictTokens" ("ReferenceId");
+        """
+    );
+
+    Console.WriteLine("[Configuration] OpenIddict schema bootstrap completed.");
+}
